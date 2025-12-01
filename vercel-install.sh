@@ -1,13 +1,12 @@
 #!/bin/bash
 
-# Cloner le SDK Flutter depuis GitHub
-git clone https://github.com/flutter/flutter.git --depth 1
+# On définit la version de Flutter à utiliser
+FLUTTER_VERSION="3.35.2"
 
-# Ajouter l'exécutable Flutter au PATH pour cette session de build
+# On clone la branche de cette version spécifique
+git clone https://github.com/flutter/flutter.git --branch $FLUTTER_VERSION --depth 1
+
+# Le reste du script est identique
 export PATH="$PATH:`pwd`/flutter/bin"
-
-# Lancer la commande d'installation de Flutter
 flutter precache
-
-# Lancer la commande d'installation de votre projet
 flutter pub get
