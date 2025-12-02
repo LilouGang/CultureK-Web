@@ -1,5 +1,4 @@
-// lib/data/data_manager.dart
-
+// lib/data/services/data_manager.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/theme_info.dart';
@@ -12,14 +11,15 @@ class DataManager with ChangeNotifier {
   bool _isReady = false;
   bool get isReady => _isReady;
 
-  // Les listes sont à nouveau vides au début
   List<ThemeInfo> themes = [];
   List<SubThemeInfo> subThemes = [];
-  List<DocumentSnapshot> allQuestions = [];
 
   Future<void> loadAllData() async {
+    // Si déjà chargé, on ne fait rien
     if (_isReady) return;
+
     try {
+      // Appel Firestore
       final responses = await Future.wait([
         FirebaseFirestore.instance.collection('ThemesStyles').get(),
         FirebaseFirestore.instance.collection('SousThemesStyles').get(),
@@ -28,7 +28,6 @@ class DataManager with ChangeNotifier {
       final themesSnapshot = responses[0];
       final subThemesSnapshot = responses[1];
 
-      // On traite et stocke les données depuis Firestore
       themes = themesSnapshot.docs
           .map((doc) => ThemeInfo.fromFirestore(doc.data()))
           .toList()
@@ -43,7 +42,9 @@ class DataManager with ChangeNotifier {
       notifyListeners();
 
     } catch (e) {
-      debugPrint("Erreur lors du chargement des données : $e");
+      debugPrint("ERREUR CRITIQUE DATA MANAGER : $e");
+      // IMPORTANT : On renvoie l'erreur pour que l'interface puisse l'afficher !
+      rethrow; 
     }
   }
 }

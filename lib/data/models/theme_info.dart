@@ -1,3 +1,5 @@
+//lib/data/models/theme_info.dart
+
 import 'package:flutter/material.dart';
 
 class ThemeInfo {

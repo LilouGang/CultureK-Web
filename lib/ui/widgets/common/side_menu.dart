@@ -1,3 +1,5 @@
+//lib/ui/widgets/common/side_menu.dart
+
 import 'package:flutter/material.dart';
 
 class SideMenu extends StatelessWidget {

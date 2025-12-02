@@ -1,3 +1,5 @@
+//lib/data/models/sub_theme_info.dart
+
 import 'theme_info.dart';
 
 class SubThemeInfo extends ThemeInfo {

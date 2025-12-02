@@ -1,3 +1,5 @@
+//lib/ui/screens/desktop_layout.dart
+
 import 'package:flutter/material.dart';
 
 class DesktopMainLayout extends StatelessWidget {
