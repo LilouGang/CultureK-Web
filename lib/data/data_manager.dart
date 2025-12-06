@@ -69,7 +69,7 @@ class DataManager with ChangeNotifier {
     try {
       final snapshot = await FirebaseFirestore.instance
           .collection('Questions')
-          .where('Theme', isEqualTo: theme)
+          .where('theme', isEqualTo: theme)
           .where('sousTheme', isEqualTo: subTheme) 
           .get();
       return snapshot.docs.map((doc) => doc.data()).toList();

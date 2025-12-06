@@ -97,8 +97,9 @@ class _QuizPageState extends State<QuizPage> {
   // 5. Reset global (Bouton Quitter)
   void _reset() {
     setState(() {
-      if (_currentQuestion != null) _currentQuestion = null;
-      else if (_selectedSubTheme != null) { _selectedSubTheme = null; _allQuestions = []; }
+      if (_currentQuestion != null) {
+        _currentQuestion = null;
+      } else if (_selectedSubTheme != null) { _selectedSubTheme = null; _allQuestions = []; }
       else if (_selectedTheme != null) _selectedTheme = null;
     });
   }
@@ -110,12 +111,35 @@ class _QuizPageState extends State<QuizPage> {
     return FutureBuilder(
       future: DataManager.instance.isReady ? null : DataManager.instance.loadAllData(),
       builder: (ctx, snap) {
+        // 1. Chargement
         if (!DataManager.instance.isReady && snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        // --- ROUTEUR D'ÉCRANS ---
-        if (_currentQuestion != null) return _buildGame(); // LE JEU
+        // 2. ERREUR (C'est ce qui manque !)
+        if (snap.hasError) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error, color: Colors.red, size: 50),
+                const SizedBox(height: 10),
+                const Text("Erreur de chargement", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 10),
+                // Ceci affichera le vrai problème
+                Text("${snap.error}", textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () => setState(() {}), 
+                  child: const Text("Réessayer")
+                )
+              ],
+            ),
+          );
+        }
+
+        // 3. Application normale
+        if (_currentQuestion != null) return _buildGame();
         if (_selectedSubTheme != null) return _isLoading ? const Center(child: CircularProgressIndicator()) : _buildDifficulty();
         if (_selectedTheme != null) return _buildSubThemes();
         return _buildThemes();
