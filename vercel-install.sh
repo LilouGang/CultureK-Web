@@ -1,17 +1,28 @@
 #!/bin/bash
+set -e  # Arrête le script immédiatement si une commande échoue
+set -x  # Affiche chaque commande dans les logs avant de l'exécuter
 
-# On définit la version de Flutter à utiliser
-FLUTTER_VERSION="3.35.2"
+echo ">>> DÉBUT DU SCRIPT D'INSTALLATION <<<"
 
-# On clone la branche de cette version spécifique
-git clone https://github.com/flutter/flutter.git --branch $FLUTTER_VERSION --depth 1
+# Vérification de l'emplacement actuel
+echo "Dossier actuel : $(pwd)"
+ls -la
 
-# On ajoute Flutter au PATH
+# Installation de Flutter
+if [ -d "flutter" ]; then
+    echo ">>> Dossier flutter existant détecté."
+    cd flutter
+    echo ">>> Mise à jour de Flutter..."
+    git pull
+    cd ..
+else
+    echo ">>> Clonage de Flutter stable..."
+    git clone https://github.com/flutter/flutter.git -b stable
+fi
+
+echo ">>> Vérification de l'installation..."
+# On ajoute le chemin temporairement pour vérifier la version
 export PATH="$PATH:`pwd`/flutter/bin"
+flutter --version
 
-# On installe Flutter et les dépendances du projet
-flutter precache
-flutter pub get
-
-# --- ON AJOUTE LA COMMANDE DE BUILD ICI ---
-flutter build web --release
+echo ">>> FIN DU SCRIPT D'INSTALLATION (SUCCÈS) <<<"
