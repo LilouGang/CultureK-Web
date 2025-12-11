@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 // --- MODÈLES ---
+
 class ThemeInfo {
   final String name;
   ThemeInfo({required this.name});
@@ -12,8 +13,19 @@ class ThemeInfo {
 class SubThemeInfo {
   final String name;
   final String parentTheme;
-  SubThemeInfo({required this.name, required this.parentTheme});
-  factory SubThemeInfo.fromFirestore(Map<String, dynamic> data) => SubThemeInfo(name: data['sousTheme'] ?? 'Sans nom', parentTheme: data['theme'] ?? 'Sans thème');
+  final int questionCount; 
+
+  // On fixe la valeur par défaut à 80 ici
+  SubThemeInfo({required this.name, required this.parentTheme, this.questionCount = 80});
+
+  factory SubThemeInfo.fromFirestore(Map<String, dynamic> data) {
+    return SubThemeInfo(
+      name: data['sousTheme'] ?? 'Sans nom', 
+      parentTheme: data['theme'] ?? 'Sans thème',
+      // On force 80 questions, peu importe ce que dit la base
+      questionCount: 80 
+    );
+  }
 }
 
 class UserProfile {
@@ -25,8 +37,9 @@ class UserProfile {
   DateTime? createdAt;
   
   Map<String, int> scores; 
-  // Structure : { 'Histoire': { '2025-12-09': 10, '2025-12-08': 5 }, 'Maths': { ... } }
   Map<String, Map<String, int>> dailyActivity; 
+
+  List<String> answeredQuestionIds;
 
   UserProfile({
     this.id = "guest",
@@ -37,47 +50,39 @@ class UserProfile {
     this.createdAt,
     this.scores = const {},
     this.dailyActivity = const {},
+    this.answeredQuestionIds = const [],
   });
 
   double get successRate => totalAnswers == 0 ? 0.0 : (totalCorrectAnswers / totalAnswers);
   bool get hasFakeEmail => email.endsWith("@noreply.culturek.com");
 
-  // --- NOUVELLE FONCTION POUR LE GRAPHIQUE EMPILLÉ ---
-  // Retourne : Map<Date, Map<Theme, Count>>
-  // Ex: { 09/12: {'Histoire': 5, 'Sport': 2}, 08/12: {'Histoire': 3} }
+  // --- STATS EMPILLÉES ---
   Map<DateTime, Map<String, int>> getLast7DaysStackedStats() {
     Map<DateTime, Map<String, int>> result = {};
     DateTime now = DateTime.now();
 
-    // 1. Initialiser les 7 derniers jours avec des maps vides
     for (int i = 6; i >= 0; i--) {
       DateTime day = DateTime(now.year, now.month, now.day).subtract(Duration(days: i));
       result[day] = {};
     }
 
-    // 2. Remplir avec les données réelles
     dailyActivity.forEach((themeName, datesMap) {
       datesMap.forEach((dateString, count) {
         try {
-          // On gère les deux formats possibles (tirets ou slashs) pour éviter les bugs
           List<String> parts = dateString.contains('/') ? dateString.split('/') : dateString.split('-');
-          
           if(parts.length == 3) {
             DateTime date = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
-            
-            // On cherche si cette date existe dans nos 7 jours affichés
-            // (On compare year/month/day pour ignorer les heures)
             DateTime? key = result.keys.cast<DateTime?>().firstWhere(
               (k) => k != null && k.year == date.year && k.month == date.month && k.day == date.day, 
               orElse: () => null
             );
-
             if (key != null) {
-              // Si la date est trouvée, on ajoute le score du thème
               result[key]![themeName] = (result[key]![themeName] ?? 0) + count;
             }
           }
-        } catch (e) { debugPrint("Erreur parsing date stat ($dateString): $e"); }
+        } catch (e) {
+          // Silent error
+        }
       });
     });
     return result;
@@ -102,27 +107,34 @@ class DataManager with ChangeNotifier {
   List<ThemeInfo> themes = [];
   List<SubThemeInfo> subThemes = [];
   UserProfile currentUser = UserProfile();
-  int totalQuestionsInDb = 0; 
+  int totalQuestionsInDb = 0;
 
   Future<void> loadAllData() async {
     if (_isReady) return;
     try {
+      // --- OPTIMISATION ---
+      // On ne charge plus JAMAIS les questions au démarrage.
+      // On charge uniquement la structure (Thèmes et Sous-Thèmes).
       final responses = await Future.wait([
         FirebaseFirestore.instance.collection('ThemesStyles').get(),
         FirebaseFirestore.instance.collection('SousThemesStyles').get(),
-        FirebaseFirestore.instance.collection('Questions').get(), 
       ]);
 
+      // 1. Charger Thèmes
       themes = (responses[0] as QuerySnapshot).docs
           .map((doc) => ThemeInfo.fromFirestore(doc.data() as Map<String, dynamic>))
           .toList()..sort((a, b) => a.name.compareTo(b.name));
           
+      // 2. Charger Sous-Thèmes
       subThemes = (responses[1] as QuerySnapshot).docs
           .map((doc) => SubThemeInfo.fromFirestore(doc.data() as Map<String, dynamic>))
           .toList()..sort((a, b) => a.name.compareTo(b.name));
       
-      totalQuestionsInDb = (responses[2] as QuerySnapshot).size;
+      // 3. Calcul théorique du nombre total de questions
+      // Puisqu'on sait qu'il y a 80 questions par sous-thème :
+      totalQuestionsInDb = subThemes.length * 80;
 
+      // 4. Charger Utilisateur
       if (FirebaseAuth.instance.currentUser != null) {
         await _loadUserProfile(FirebaseAuth.instance.currentUser!.uid);
       }
@@ -130,8 +142,44 @@ class DataManager with ChangeNotifier {
       _isReady = true;
       notifyListeners();
     } catch (e) {
-      debugPrint("ERREUR DATA : $e");
       rethrow; 
+    }
+  }
+
+  // --- MÉTHODES DE COMPTAGE (LOGIQUE "80") ---
+  
+  int countTotalQuestionsForTheme(String themeName) {
+    // On compte combien de sous-thèmes possède ce thème
+    int nbSubThemes = subThemes.where((st) => st.parentTheme == themeName).length;
+    
+    // Total = Nombre de sous-thèmes * 80
+    int total = nbSubThemes * 80;
+    
+    return total > 0 ? total : 1; 
+  }
+
+  int countTotalQuestionsForSubTheme(String themeName, String subThemeName) {
+    // C'est simple, c'est toujours 80 par définition
+    return 80;
+  }
+
+  // --- CHARGEMENT DYNAMIQUE DES QUESTIONS (LAZY LOADING) ---
+  Future<List<Map<String, dynamic>>> getQuestions(String theme, String subTheme) async {
+    try {
+      // On ne charge que les questions nécessaires au moment du jeu
+      final snapshot = await FirebaseFirestore.instance
+          .collection('Questions')
+          .where('theme', isEqualTo: theme)
+          .where('sousTheme', isEqualTo: subTheme)
+          .get();
+          
+      return snapshot.docs.map((doc) {
+        final d = doc.data();
+        d['id'] = doc.id;
+        return d;
+      }).toList();
+    } catch (e) { 
+      return []; 
     }
   }
 
@@ -247,6 +295,7 @@ class DataManager with ChangeNotifier {
         createdAt: createdDate,
         scores: parsedScores,
         dailyActivity: parsedDaily,
+        answeredQuestionIds: List<String>.from(data['answeredQuestionIds'] ?? []),
       );
     }
     notifyListeners();
@@ -254,77 +303,99 @@ class DataManager with ChangeNotifier {
 
   List<SubThemeInfo> getSubThemesFor(String themeName) => subThemes.where((st) => st.parentTheme == themeName).toList();
   
-  Future<List<Map<String, dynamic>>> getQuestions(String theme, String subTheme) async {
-    try {
-      final snapshot = await FirebaseFirestore.instance.collection('Questions').where('theme', isEqualTo: theme).where('sousTheme', isEqualTo: subTheme).get();
-      return snapshot.docs.map((doc) {
-        final d = doc.data();
-        d['id'] = doc.id;
-        return d;
-      }).toList();
-    } catch (e) { return []; }
-  }
-
   // --- SAUVEGARDE DES RÉPONSES ---
-  // J'ai ajouté le paramètre required 'themeName'
   Future<void> addAnswer(bool isCorrect, String questionId, String answerText, String themeName) async {
-    if (currentUser.id == "guest") {
-      currentUser.totalAnswers++;
-      if (isCorrect) currentUser.totalCorrectAnswers++;
-      notifyListeners();
-    } else {
-      try {
-        final userRef = FirebaseFirestore.instance.collection('Users').doc(currentUser.id);
-        
-        // 1. Mise à jour des totaux
-        await userRef.update({
-          'totalAnswers': FieldValue.increment(1),
-          'totalCorrectAnswers': FieldValue.increment(isCorrect ? 1 : 0),
-        });
+    // ---------------------------------------------------------
+    // 1. MISE À JOUR LOCALE (Instantanée pour l'UI)
+    // ---------------------------------------------------------
+    
+    // Gestion des compteurs globaux
+    currentUser.totalAnswers++;
+    if (isCorrect) currentUser.totalCorrectAnswers++;
 
-        // 2. Mise à jour de l'activité quotidienne PAR THÈME
-        final now = DateTime.now();
-        // Formatage strict yyyy-MM-dd pour éviter les soucis de tri
-        final dateKey = "${now.year}-${now.month.toString().padLeft(2,'0')}-${now.day.toString().padLeft(2,'0')}";
-        
-        // Utilisation de la notation par points pour cibler spécifiquement ce thème et cette date
-        try {
-          await userRef.update({
-             "dailyActivityByTheme.$themeName.$dateKey": FieldValue.increment(1) 
-          });
-        } catch(e) {
-          // Fallback si la structure n'existe pas : merge
-          await userRef.set({
-            "dailyActivityByTheme": {
-              themeName: { dateKey: FieldValue.increment(1) }
-            }
-          }, SetOptions(merge: true));
-        }
-
-        // 3. Mise à jour locale pour affichage instantané sans recharger
-        currentUser.totalAnswers++;
-        if (isCorrect) currentUser.totalCorrectAnswers++;
-        
-        // Update local du dailyActivity
-        Map<String, int> themeMap = currentUser.dailyActivity[themeName] ?? {};
-        themeMap[dateKey] = (themeMap[dateKey] ?? 0) + 1;
-        currentUser.dailyActivity[themeName] = themeMap;
-
-        notifyListeners();
-      } catch (e) {
-        debugPrint("Erreur update User stats: $e");
+    // Gestion de la liste des IDs (Mécanique des Packs)
+    if (isCorrect) {
+      // Si bonne réponse : On valide la question (si pas déjà fait)
+      if (!currentUser.answeredQuestionIds.contains(questionId)) {
+        currentUser.answeredQuestionIds.add(questionId);
       }
+    } else {
+      // Si mauvaise réponse : PUNITIF ! On retire la validation
+      currentUser.answeredQuestionIds.remove(questionId);
     }
 
+    // Gestion de l'activité quotidienne (Locale)
+    final now = DateTime.now();
+    final dateKey = "${now.year}-${now.month.toString().padLeft(2,'0')}-${now.day.toString().padLeft(2,'0')}";
+    
+    Map<String, int> themeMap = currentUser.dailyActivity[themeName] ?? {};
+    themeMap[dateKey] = (themeMap[dateKey] ?? 0) + 1;
+    currentUser.dailyActivity[themeName] = themeMap;
+
+    // On notifie l'UI immédiatement pour voir les jauges bouger
+    notifyListeners();
+
+    // Si c'est un invité, on s'arrête là (pas d'écriture en base)
+    if (currentUser.id == "guest") return;
+
+    // ---------------------------------------------------------
+    // 2. MISE À JOUR FIREBASE (Utilisateur)
+    // ---------------------------------------------------------
+    try {
+      final userRef = FirebaseFirestore.instance.collection('Users').doc(currentUser.id);
+      
+      // A. Mise à jour des totaux (Incrémentation atomique)
+      await userRef.update({
+        'totalAnswers': FieldValue.increment(1),
+        'totalCorrectAnswers': FieldValue.increment(isCorrect ? 1 : 0),
+      });
+
+      // B. Mise à jour des IDs validés (Union ou Remove)
+      if (isCorrect) {
+        // arrayUnion ajoute l'élément seulement s'il n'existe pas déjà
+        await userRef.update({
+          'answeredQuestionIds': FieldValue.arrayUnion([questionId])
+        });
+      } else {
+        // arrayRemove retire l'élément s'il existe
+        await userRef.update({
+          'answeredQuestionIds': FieldValue.arrayRemove([questionId])
+        });
+      }
+
+      // C. Mise à jour de l'activité quotidienne (Notation par points pour Map imbriquée)
+      try {
+        await userRef.update({ 
+          "dailyActivityByTheme.$themeName.$dateKey": FieldValue.increment(1) 
+        });
+      } catch(e) {
+        // Si la structure n'existe pas encore, on la crée avec un merge
+        await userRef.set({ 
+          "dailyActivityByTheme": { 
+            themeName: { dateKey: FieldValue.increment(1) } 
+          } 
+        }, SetOptions(merge: true));
+      }
+
+    } catch (e) {
+      debugPrint("Erreur update User stats: $e");
+    }
+
+    // ---------------------------------------------------------
+    // 3. MISE À JOUR FIREBASE (Question Globale)
+    // ---------------------------------------------------------
     if (questionId.isNotEmpty) {
       try {
         final qRef = FirebaseFirestore.instance.collection('Questions').doc(questionId);
         await qRef.update({
           'timesAnswered': FieldValue.increment(1),
           'timesCorrect': FieldValue.increment(isCorrect ? 1 : 0),
+          // On incrémente le compteur spécifique de la réponse choisie
           'answerStats.$answerText': FieldValue.increment(1),
         });
-      } catch (e) { debugPrint("Erreur update Question stats: $e"); }
+      } catch (e) { 
+        debugPrint("Erreur update Question stats: $e");
+      }
     }
   }
 }

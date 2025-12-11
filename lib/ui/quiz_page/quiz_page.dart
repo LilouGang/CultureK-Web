@@ -15,6 +15,7 @@ class QuizPage extends StatefulWidget {
 class _QuizPageState extends State<QuizPage> {
   // --- ÉTATS ---
   late Future<void> _loadDataFuture;
+  List<Map<String, dynamic>> _currentSubThemeQuestionsForStats = [];
   
   // Navigation State
   ThemeInfo? _selectedTheme;
@@ -51,40 +52,93 @@ class _QuizPageState extends State<QuizPage> {
   Future<void> _onSelectSubTheme(SubThemeInfo subTheme) async {
     setState(() {
       _selectedSubTheme = subTheme;
-      // On ne charge pas encore les questions, on attend la difficulté
+      _isLoadingGame = true; // On affiche un petit chargement le temps de récupérer les IDs
     });
+
+    // On charge toutes les questions de ce sous-thème pour pouvoir calculer les packs
+    final qs = await DataManager.instance.getQuestions(_selectedTheme!.name, subTheme.name);
+    
+    if (mounted) {
+      setState(() {
+        _currentSubThemeQuestionsForStats = qs;
+        _isLoadingGame = false;
+      });
+    }
   }
 
-  Future<void> _onSelectDifficulty(String label, int min, int max) async {
+  // Calcule le % de progression d'un pack (0.0 à 1.0)
+  // packIndex : 1 (premier pack de 10) ou 2 (deuxième pack de 10)
+  double _calculatePackProgress(int minDiff, int maxDiff, int packIndex) {
+    if (_currentSubThemeQuestionsForStats.isEmpty) return 0.0;
+
+    // 1. Filtrer par difficulté
+    final questionsOfLevel = _currentSubThemeQuestionsForStats.where((q) {
+      int lvl = int.tryParse(q['difficulty'].toString()) ?? 0;
+      return lvl >= minDiff && lvl <= maxDiff;
+    }).toList();
+
+    // 2. Trier par ID alphabétique (pour que les packs soient toujours les mêmes)
+    questionsOfLevel.sort((a, b) => (a['id'] ?? '').compareTo(b['id'] ?? ''));
+
+    // 3. Déterminer la tranche (Pack 1: 0-9, Pack 2: 10-19)
+    int startIndex = (packIndex - 1) * 10;
+    int endIndex = startIndex + 10;
+
+    // Sécurité si moins de questions que prévu
+    if (startIndex >= questionsOfLevel.length) return 0.0;
+    if (endIndex > questionsOfLevel.length) endIndex = questionsOfLevel.length;
+
+    // 4. Extraire les questions du pack
+    final packQuestions = questionsOfLevel.sublist(startIndex, endIndex);
+    if (packQuestions.isEmpty) return 0.0;
+
+    // 5. Compter combien sont validées dans le UserProfile
+    final userIds = DataManager.instance.currentUser.answeredQuestionIds;
+    int validatedCount = 0;
+    
+    for (var q in packQuestions) {
+      if (userIds.contains(q['id'])) {
+        validatedCount++;
+      }
+    }
+
+    return validatedCount / packQuestions.length; // Ex: 5/10 = 0.5
+  }
+
+  Future<void> _onSelectDifficulty(String label, int min, int max, int packIndex) async {
+    // Note : packIndex (1 ou 2) sert à filtrer le bon chunk de questions
+    
     setState(() {
-      _diffLabel = label;
+      _diffLabel = "$label - Pack $packIndex";
       _minLvl = min;
       _maxLvl = max;
-      _isLoadingGame = true;
     });
 
-    // Chargement des questions
-    final qs = await DataManager.instance.getQuestions(_selectedTheme!.name, _selectedSubTheme!.name);
-    
-    // Filtrage par difficulté
-    final filtered = qs.where((q) {
+    // 1. Filtrer la liste déjà chargée par difficulté
+    final questionsOfLevel = _currentSubThemeQuestionsForStats.where((q) {
       int lvl = int.tryParse(q['difficulty'].toString()) ?? 0;
       return lvl >= _minLvl && lvl <= _maxLvl;
     }).toList();
 
-    if (filtered.isEmpty) {
-      if (mounted) {
-        setState(() => _isLoadingGame = false);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Aucune question trouvée pour ce niveau !"), backgroundColor: Colors.orange));
-      }
-      return;
+    // 2. Trier par ID
+    questionsOfLevel.sort((a, b) => (a['id'] ?? '').compareTo(b['id'] ?? ''));
+
+    // 3. Sélectionner le Pack (10 questions)
+    int startIndex = (packIndex - 1) * 10;
+    int endIndex = startIndex + 10;
+    
+    if (startIndex >= questionsOfLevel.length) {
+       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Ce pack est vide pour l'instant !"), backgroundColor: Colors.orange));
+       return;
     }
+    if (endIndex > questionsOfLevel.length) endIndex = questionsOfLevel.length;
+
+    final packQuestions = questionsOfLevel.sublist(startIndex, endIndex);
 
     if (mounted) {
       setState(() {
-        _allQuestions = filtered;
-        _isLoadingGame = false;
-        _nextQuestion(); // Lance la première question
+        _allQuestions = packQuestions;
+        _nextQuestion();
       });
     }
   }
@@ -103,9 +157,8 @@ class _QuizPageState extends State<QuizPage> {
 
     final correctText = _currentQuestion!['reponse']?.toString() ?? "";
     int correctIdx = props.indexWhere((p) => p.trim() == correctText.trim());
-    if (correctIdx == -1) correctIdx = 0; // Fallback
+    if (correctIdx == -1) correctIdx = 0; 
 
-    // Envoi BDD
     DataManager.instance.addAnswer(
       index == correctIdx, 
       _currentQuestion!['id'] ?? "", 
@@ -113,7 +166,6 @@ class _QuizPageState extends State<QuizPage> {
       _selectedTheme!.name
     );
 
-    // Mise à jour locale pour affichage immédiat stats
     Map<String, dynamic> newStats = Map.from(_currentQuestion!['answerStats'] ?? {});
     newStats[text] = (int.tryParse(newStats[text].toString()) ?? 0) + 1;
     
@@ -146,29 +198,91 @@ class _QuizPageState extends State<QuizPage> {
     setState(() {
       _currentQuestion = null;
       _allQuestions = [];
-      _selectedSubTheme = null;
-      _selectedTheme = null;
     });
+  }
+
+  // --- CALCULS DE PROGRESSION ---
+
+  Map<String, double> _calculateThemeProgressMap() {
+    final user = DataManager.instance.currentUser;
+    Map<String, double> progressMap = {};
+    Map<String, int> playerScores = {};
+
+    user.scores.forEach((key, value) {
+      String mainTheme = key.contains('-') ? key.split('-')[0].trim() : key;
+      int points = 0;
+      
+      if (value is Map) {
+        final valMap = value as Map<dynamic, dynamic>; 
+        points = (valMap['dynamicScore'] as num?)?.toInt() ?? 0;
+      } else      points = value.toInt();
+    
+
+      playerScores[mainTheme] = (playerScores[mainTheme] ?? 0) + points;
+    });
+
+    playerScores.forEach((theme, score) {
+      int totalQuestionsAvailable = DataManager.instance.countTotalQuestionsForTheme(theme);
+      if (totalQuestionsAvailable == 0) totalQuestionsAvailable = 1;
+      double percent = score / totalQuestionsAvailable;
+      if (percent > 1.0) percent = 1.0; 
+      progressMap[theme] = percent;
+    });
+
+    return progressMap;
+  }
+
+  // NOUVEAU : Calcul pour les sous-thèmes
+  Map<String, double> _calculateSubThemeProgressMap() {
+    final user = DataManager.instance.currentUser;
+    Map<String, double> progressMap = {};
+    
+    user.scores.forEach((key, value) {
+      // key = "Theme-SousTheme"
+      if (!key.contains('-')) return;
+
+      int points = 0;
+      if (value is Map) {
+        final valMap = value as Map<dynamic, dynamic>;
+        points = (valMap['dynamicScore'] as num?)?.toInt() ?? 0;
+      } else      points = value.toInt();
+    
+
+      try {
+        String themeName = key.split('-')[0];
+        String subThemeName = key.split('-')[1];
+        
+        // On récupère le total précis via DataManager
+        int total = DataManager.instance.countTotalQuestionsForSubTheme(themeName, subThemeName);
+        if (total == 0) total = 1;
+
+        double percent = points / total;
+        if (percent > 1.0) percent = 1.0;
+        
+        // On stocke par nom de sous-thème
+        progressMap[subThemeName] = percent; 
+      } catch (e) {
+        // Ignore parsing errors
+      }
+    });
+
+    return progressMap;
   }
 
   // --- RENDU ---
 
   @override
   Widget build(BuildContext context) {
-    // Utilisation d'un Stack pour superposer le fond dessiné et le contenu
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC), // Couleur de base très claire
+      backgroundColor: const Color(0xFFF8FAFC),
       body: Stack(
         children: [
-          // --- COUCHE 1 : LE PATTERN DESSINÉ ---
-          // Dessine des petits motifs géométriques subtils en arrière-plan
           Positioned.fill(
             child: CustomPaint(
               painter: _QuizPatternPainter(),
             ),
           ),
 
-          // --- COUCHE 2 : LE CONTENU (FutureBuilder) ---
           FutureBuilder(
             future: _loadDataFuture,
             builder: (context, snapshot) {
@@ -176,9 +290,8 @@ class _QuizPageState extends State<QuizPage> {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              // 1. ÉCRAN DE JEU (Active Game)
               if (_currentQuestion != null) {
-            return QuizGameView(
+                return QuizGameView(
                   key: ValueKey(_currentQuestion!['id']),
                   questionData: _currentQuestion!,
                   difficultyLabel: _diffLabel!,
@@ -191,21 +304,37 @@ class _QuizPageState extends State<QuizPage> {
                 );
               }
 
-              // 2. ÉCRAN DE CHARGEMENT JEU
               if (_isLoadingGame) {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              // 3. ÉCRANS DE SÉLECTION
-              return Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1000),
-                  child: Padding(
-                    // On garde les paddings réduits comme demandé précédemment
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 400),
-                      child: _buildSelectionView(),
+              final progressMap = _calculateThemeProgressMap();
+              final subThemeProgressMap = _calculateSubThemeProgressMap(); // <--- On calcule ici
+
+              return ScrollConfiguration(
+                behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1000), 
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 60),
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 400),
+                          layoutBuilder: (currentChild, previousChildren) {
+                            return Stack(
+                              alignment: Alignment.topCenter,
+                              children: [
+                                ...previousChildren,
+                                if (currentChild != null) currentChild,
+                              ],
+                            );
+                          },
+                          // On passe les deux maps
+                          child: _buildSelectionView(progressMap, subThemeProgressMap),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -217,28 +346,30 @@ class _QuizPageState extends State<QuizPage> {
     );
   }
 
-  Widget _buildSelectionView() {
-    // A. Choix Difficulté
+  Widget _buildSelectionView(Map<String, double> progressMap, Map<String, double> subThemeProgressMap) {
     if (_selectedSubTheme != null) {
       return DifficultySelectionView(
         theme: _selectedTheme!,
         subTheme: _selectedSubTheme!,
-        onSelect: _onSelectDifficulty,
+        // On passe notre fonction de calcul
+        progressCalculator: _calculatePackProgress, 
+        // On met à jour la signature du callback pour inclure le numéro de pack
+        onSelect: (label, min, max, packNum) => _onSelectDifficulty(label, min, max, packNum),
         onBack: _onBack,
       );
     }
-    // B. Choix Sous-Thème
     if (_selectedTheme != null) {
       return SubThemeSelectionView(
         theme: _selectedTheme!,
         subThemes: DataManager.instance.getSubThemesFor(_selectedTheme!.name),
+        progressMap: subThemeProgressMap, // <--- Transmission
         onSelect: _onSelectSubTheme,
         onBack: _onBack,
       );
     }
-    // C. Choix Thème (Racine)
     return ThemeSelectionView(
       themes: DataManager.instance.themes,
+      progressMap: progressMap,
       onSelect: _onSelectTheme,
     );
   }
@@ -248,62 +379,47 @@ class _QuizPatternPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final Paint paintStroke = Paint()
-      ..color = Colors.blueGrey.withOpacity(0.3) // Gris très doux
+      ..color = Colors.blueGrey.withOpacity(0.06)
       ..strokeWidth = 1.2
       ..style = PaintingStyle.stroke;
 
     final Paint paintFill = Paint()
-      ..color = Colors.blueGrey.withOpacity(0.3)
+      ..color = Colors.blueGrey.withOpacity(0.06)
       ..style = PaintingStyle.fill;
 
-    const double gridSize = 50.0; // Grille un peu plus serrée
+    const double gridSize = 50.0;
 
-    // Calcul du nombre de colonnes et lignes
     final int cols = (size.width / gridSize).ceil();
     final int rows = (size.height / gridSize).ceil();
 
     for (int i = 0; i < cols; i++) {
       for (int j = 0; j < rows; j++) {
-        // Coordonnées du centre de la cellule
         final double x = i * gridSize;
         final double y = j * gridSize;
         final Offset center = Offset(x + gridSize / 2, y + gridSize / 2);
 
-        // FORMULE AMÉLIORÉE POUR LA VARIÉTÉ
-        // On utilise XOR (^) et des nombres premiers (13, 7) pour casser la répétition
         final int hash = ((i * 13) ^ (j * 7) + (i * j)).abs();
-        
-        // On utilise un modulo 7 pour avoir plus de cas (dont du vide)
-        final int shapeType = hash % 14; 
+        final int shapeType = hash % 7; 
 
         switch (shapeType) {
           case 0: 
           case 1: 
-            // CROIX (+) - Fréquent (2 chances sur 7)
             const double s = 4.0;
             canvas.drawLine(center.translate(-s, 0), center.translate(s, 0), paintStroke);
             canvas.drawLine(center.translate(0, -s), center.translate(0, s), paintStroke);
             break;
-            
           case 2:
           case 3:
-            // POINT (.) - Fréquent (2 chances sur 7)
             canvas.drawCircle(center, 1.5, paintFill);
             break;
-            
           case 4:
-            // CERCLE VIDE (o) - Rare
             canvas.drawCircle(center, 3.0, paintStroke);
             break;
-            
           case 5:
-            // TRAIT DIAGONAL (/) - Rare
             const double s = 3.0;
             canvas.drawLine(center.translate(-s, s), center.translate(s, -s), paintStroke);
             break;
-            
-          case 6:
-            // VIDE - Pour laisser respirer le design
+          default:
             break;
         }
       }
