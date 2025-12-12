@@ -447,7 +447,7 @@ class DataManager with ChangeNotifier {
     required String explanation,
   }) async {
     try {
-      await FirebaseFirestore.instance.collection('questionReports').add({
+      await FirebaseFirestore.instance.collection('QuestionReports').add({
         'userId': currentUser.id,
         'username': currentUser.username,
         'questionId': questionId,
