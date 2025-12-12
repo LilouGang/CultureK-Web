@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../data/data_manager.dart';
 import 'quiz_page/quiz_page.dart';
 import 'profil_page/profil_page.dart';
@@ -15,100 +16,91 @@ class MainLayout extends StatefulWidget {
 class _MainLayoutState extends State<MainLayout> {
   bool _isSidebarCollapsed = false;
   int _selectedIndex = 0;
-  ThemeInfo? _forcedThemeSelection;
+  final ThemeInfo? _forcedThemeSelection = null; 
 
   void _onMenuSelect(int index) {
     setState(() {
       _selectedIndex = index;
-      _forcedThemeSelection = null;
-    });
-  }
-
-  void _onThemeDirectSelect(ThemeInfo theme) {
-    setState(() {
-      _selectedIndex = 0;
-      _forcedThemeSelection = theme;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // Calcul de la largeur actuelle de la sidebar pour l'animation
-    final double sidebarWidth = _isSidebarCollapsed ? 80 : 280;
+    final double sidebarWidth = _isSidebarCollapsed ? 80 : 260;
 
     return Scaffold(
-      // ON REMPLACE 'ROW' PAR 'STACK' POUR GÉRER LA PROFONDEUR (Z-INDEX)
       body: Stack(
         children: [
           // --- 1. LE CONTENU (ARRIÈRE-PLAN) ---
-          // On utilise AnimatedContainer pour ajuster la marge quand la sidebar bouge
           AnimatedContainer(
             duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            // C'est ici la magie : on laisse de la place à gauche pour la sidebar
+            curve: Curves.easeOutCubic,
             padding: EdgeInsets.only(left: sidebarWidth), 
-            color: const Color(0xFFF8F9FE), // Fond global de l'app
+            color: const Color(0xFFF8FAFC),
             child: _buildPageContent(),
           ),
 
           // --- 2. LA SIDEBAR (PREMIER PLAN) ---
-          // Dessinée APRÈS le contenu, donc son ombre passe PAR DESSUS le contenu
           AnimatedContainer(
             duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
+            curve: Curves.easeOutCubic,
             width: sidebarWidth,
-            height: double.infinity, // Prend toute la hauteur
+            height: double.infinity,
             decoration: BoxDecoration(
               color: Colors.white,
-              // L'ombre se projette maintenant proprement sur le contenu à droite
               boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 15, offset: const Offset(4, 0))
+                BoxShadow(
+                  color: Colors.blueGrey.withOpacity(0.08), 
+                  blurRadius: 20, 
+                  offset: const Offset(4, 0)
+                )
               ],
             ),
             child: Column(
               children: [
                 _buildSidebarHeader(),
-                const Divider(height: 1),
+                
                 Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.symmetric(vertical: 20),
-                    children: [
-                      _SidebarItem(
-                        icon: Icons.grid_view_rounded,
-                        label: "Catégories",
-                        isCollapsed: _isSidebarCollapsed,
-                        isActive: _selectedIndex == 0,
-                        onTap: () => _onMenuSelect(0),
-                      ),
-                      if (!_isSidebarCollapsed)
-                        ...DataManager.instance.themes.map((t) => _ThemeSubItem(
-                          label: t.name,
-                          onTap: () => _onThemeDirectSelect(t),
-                        )),
-                      _SidebarItem(
-                        icon: Icons.bar_chart_rounded,
-                        label: "Statistiques",
-                        isCollapsed: _isSidebarCollapsed,
-                        isActive: _selectedIndex == 1,
-                        onTap: () => _onMenuSelect(1),
-                      ),
-                      _SidebarItem(
-                        icon: Icons.person_rounded,
-                        label: "Profil",
-                        isCollapsed: _isSidebarCollapsed,
-                        isActive: _selectedIndex == 2,
-                        onTap: () => _onMenuSelect(2),
-                      ),
-                      _SidebarItem(
-                        icon: Icons.mail_outline_rounded,
-                        label: "Contact",
-                        isCollapsed: _isSidebarCollapsed,
-                        isActive: _selectedIndex == 3,
-                        onTap: () => _onMenuSelect(3),
-                      ),
-                    ],
+                  child: Consumer<DataManager>(
+                    builder: (context, dataManager, child) {
+                      return ListView(
+                        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 12),
+                        children: [
+                          _SidebarItem(
+                            icon: Icons.grid_view_rounded,
+                            label: "Catégories",
+                            isCollapsed: _isSidebarCollapsed,
+                            isActive: _selectedIndex == 0,
+                            onTap: () => _onMenuSelect(0),
+                          ),
+                          const SizedBox(height: 8),
+                          _SidebarItem(
+                            icon: Icons.bar_chart_rounded,
+                            label: "Statistiques",
+                            isCollapsed: _isSidebarCollapsed,
+                            isActive: _selectedIndex == 1,
+                            onTap: () => _onMenuSelect(1),
+                          ),
+                          _SidebarItem(
+                            icon: Icons.person_rounded,
+                            label: "Profil",
+                            isCollapsed: _isSidebarCollapsed,
+                            isActive: _selectedIndex == 2,
+                            onTap: () => _onMenuSelect(2),
+                          ),
+                          _SidebarItem(
+                            icon: Icons.mail_outline_rounded,
+                            label: "Contact",
+                            isCollapsed: _isSidebarCollapsed,
+                            isActive: _selectedIndex == 3,
+                            onTap: () => _onMenuSelect(3),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
+                
                 _buildSidebarFooter(),
               ],
             ),
@@ -119,66 +111,133 @@ class _MainLayoutState extends State<MainLayout> {
   }
 
   Widget _buildSidebarHeader() {
-    return SizedBox(
-      height: 80,
+    return Container(
+      height: 90,
+      alignment: Alignment.center,
+      // CORRECTION 1 : Padding symétrique appliqué au conteneur global
+      padding: EdgeInsets.symmetric(horizontal: _isSidebarCollapsed ? 0 : 24),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: Colors.grey.shade100)),
+      ),
       child: Row(
+        // spaceBetween va maintenant coller les éléments aux bords du padding défini ci-dessus
         mainAxisAlignment: _isSidebarCollapsed ? MainAxisAlignment.center : MainAxisAlignment.spaceBetween,
         children: [
           if (!_isSidebarCollapsed)
-            const Padding(
-              padding: EdgeInsets.only(left: 24),
-              child: Text("CultureK", style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w800, fontSize: 24, color: Colors.blueAccent)),
+            // Le padding local a été retiré ici
+            const Row(
+              children: [
+                Icon(Icons.flash_on_rounded, color: Color(0xFF6366F1), size: 28),
+                SizedBox(width: 8),
+                Text("CultureK", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 22, color: Color(0xFF1E293B), letterSpacing: -0.5)),
+              ],
             ),
           IconButton(
-            icon: Icon(_isSidebarCollapsed ? Icons.keyboard_double_arrow_right : Icons.keyboard_double_arrow_left, color: Colors.grey),
+            // Le SizedBox(width: 8) final a été retiré ici
+            icon: Icon(_isSidebarCollapsed ? Icons.menu_open_rounded : Icons.chevron_left_rounded, color: Colors.blueGrey),
             onPressed: () => setState(() => _isSidebarCollapsed = !_isSidebarCollapsed),
+            padding: EdgeInsets.zero, // Pour un alignement précis
+            constraints: const BoxConstraints(), // Pour un alignement précis
           ),
-          if (!_isSidebarCollapsed) const SizedBox(width: 8),
         ],
       ),
     );
   }
 
   Widget _buildSidebarFooter() {
-    // Petit fix : Gestion des débordements si le nom est long en mode réduit
-    return Container(
-      padding: const EdgeInsets.all(16),
-      color: Colors.grey.shade50,
-      child: _isSidebarCollapsed 
-        ? const CircleAvatar(backgroundColor: Colors.blue, child: Icon(Icons.person, color: Colors.white))
-        : Row(
-            children: [
-              const CircleAvatar(backgroundColor: Colors.blue, child: Icon(Icons.person, color: Colors.white)),
-              const SizedBox(width: 12),
-              // Expanded pour éviter l'overflow horizontal
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text("Invité", style: TextStyle(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
-                    Text("Niveau 1", style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  ],
+    return Consumer<DataManager>(
+      builder: (context, dataManager, child) {
+        final user = dataManager.currentUser;
+        // Calcul du niveau actuel
+        final int level = (user.totalCorrectAnswers / 50).floor() + 1;
+        // Calcul de la progression vers le prochain niveau (reste de la division par 50)
+        final int progressTowardsNext = user.totalCorrectAnswers % 50;
+        // Pourcentage pour la barre (entre 0.0 et 1.0)
+        final double progressPercent = progressTowardsNext / 50.0;
+
+        return InkWell(
+          onTap: () => _onMenuSelect(2),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: Colors.grey.shade100)),
+              color: _isSidebarCollapsed ? Colors.transparent : Colors.grey.shade50.withOpacity(0.5),
+            ),
+            child: Row(
+              mainAxisAlignment: _isSidebarCollapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
+              children: [
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: const Color(0xFF6366F1),
+                  child: Text(
+                    user.username.isNotEmpty ? user.username[0].toUpperCase() : "?",
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
                 ),
-              )
-            ],
+                if (!_isSidebarCollapsed) ...[
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(user.username, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1E293B)), overflow: TextOverflow.ellipsis),
+                        
+                        const SizedBox(height: 4),
+                        
+                        // CORRECTION 2 : Ligne Niveau + Progression texte
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                             Text("Niveau $level", style: TextStyle(fontSize: 12, color: Colors.blueGrey.shade500, fontWeight: FontWeight.w600)),
+                             // Affichage discret genre "12/50"
+                             Text("$progressTowardsNext/50", style: TextStyle(fontSize: 10, color: Colors.blueGrey.shade300, fontWeight: FontWeight.w500)),
+                          ],
+                        ),
+                        
+                        const SizedBox(height: 6),
+
+                        // CORRECTION 2 : Barre de progression
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(2),
+                          child: LinearProgressIndicator(
+                            value: progressPercent,
+                            minHeight: 4, // Trait fin
+                            backgroundColor: Colors.grey.shade200,
+                            valueColor: const AlwaysStoppedAnimation(Color(0xFF6366F1)), // Couleur du thème
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Icon(Icons.settings_rounded, size: 18, color: Colors.grey),
+                ]
+              ],
+            ),
           ),
+        );
+      },
     );
   }
 
   Widget _buildPageContent() {
-    if (_selectedIndex == 0) return QuizPage(initialTheme: _forcedThemeSelection);
-    if (_selectedIndex == 1) {
-      return StatsPage(
-        onGoToLogin: () => _onMenuSelect(2), // 2 = Index de la page Profil
-      );
-    }
-    if (_selectedIndex == 2) return const ProfilPage();
-    if (_selectedIndex == 3) return const ContactPage();
-    return const Center(child: Text("Page non trouvée"));
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 200),
+      child: KeyedSubtree(
+        key: ValueKey(_selectedIndex),
+        child: Builder(builder: (ctx) {
+          if (_selectedIndex == 0) return QuizPage(initialTheme: _forcedThemeSelection);
+          if (_selectedIndex == 1) return StatsPage(onGoToLogin: () => _onMenuSelect(2));
+          if (_selectedIndex == 2) return const ProfilPage();
+          if (_selectedIndex == 3) return const ContactPage();
+          return const Center(child: Text("Page non trouvée"));
+        }),
+      ),
+    );
   }
 }
 
-// --- WIDGETS INTERNES ---
+// --- WIDGET SIDEBAR ITEM (Inchangé) ---
 
 class _SidebarItem extends StatelessWidget {
   final IconData icon;
@@ -191,46 +250,48 @@ class _SidebarItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          height: 50,
-          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          decoration: BoxDecoration(
-            color: isActive ? Colors.blueAccent.withOpacity(0.1) : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            mainAxisAlignment: isCollapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
-            children: [
-              if (!isCollapsed) const SizedBox(width: 16),
-              Icon(icon, color: isActive ? Colors.blueAccent : Colors.grey[600], size: 22),
-              if (!isCollapsed) ...[
-                const SizedBox(width: 16),
-                Expanded(child: Text(label, style: TextStyle(color: isActive ? Colors.blueAccent : Colors.grey[700], fontWeight: isActive ? FontWeight.w600 : FontWeight.normal), overflow: TextOverflow.ellipsis)),
-              ]
-            ],
+    final color = isActive ? const Color(0xFF6366F1) : Colors.blueGrey.shade600;
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          hoverColor: const Color(0xFF6366F1).withOpacity(0.05),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            height: 52,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: isActive ? const Color(0xFF6366F1).withOpacity(0.08) : Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisAlignment: isCollapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
+              children: [
+                Icon(icon, color: color, size: 22),
+                if (!isCollapsed) ...[
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      label, 
+                      style: TextStyle(
+                        color: color, 
+                        fontWeight: isActive ? FontWeight.w700 : FontWeight.w500, 
+                        fontSize: 14
+                      ), 
+                      overflow: TextOverflow.ellipsis
+                    ),
+                  ),
+                  if (isActive)
+                    Container(width: 6, height: 6, decoration: const BoxDecoration(color: Color(0xFF6366F1), shape: BoxShape.circle))
+                ]
+              ],
+            ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _ThemeSubItem extends StatelessWidget {
-  final String label;
-  final VoidCallback onTap;
-  const _ThemeSubItem({required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.only(left: 54, top: 8, bottom: 8),
-        child: Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
       ),
     );
   }

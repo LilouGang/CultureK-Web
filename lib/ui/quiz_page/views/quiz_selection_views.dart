@@ -454,9 +454,19 @@ class _ListSelectionCardState extends State<_ListSelectionCard> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(widget.title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: _hover ? widget.color : const Color(0xFF1E293B)), overflow: TextOverflow.ellipsis),
+                            Text(widget.title, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: _hover ? widget.color : const Color(0xFF1E293B)), overflow: TextOverflow.ellipsis),
                             if (widget.progress > 0)
-                              Text("${(widget.progress * 100).toInt()}% complété", style: TextStyle(fontSize: 10, color: widget.color.withOpacity(0.8), fontWeight: FontWeight.bold)),
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  "${(widget.progress * 100).toInt()}% complété", 
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: widget.color.withOpacity(0.8), 
+                                    fontWeight: FontWeight.bold
+                                  )
+                                ),
+                              ),
                           ],
                         ),
                       ),

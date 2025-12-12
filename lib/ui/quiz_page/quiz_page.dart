@@ -1,8 +1,7 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../data/data_manager.dart';
-import 'views/quiz_selection_views.dart';
-import 'views/quiz_game_view.dart';
+import 'views/quiz_selection_views.dart'; // Assure-toi que ce fichier existe
+import 'views/quiz_game_view.dart'; // Le fichier que nous avons perfectionné
 
 class QuizPage extends StatefulWidget {
   final ThemeInfo? initialTheme;
@@ -13,7 +12,7 @@ class QuizPage extends StatefulWidget {
 }
 
 class _QuizPageState extends State<QuizPage> {
-  // --- ÉTATS ---
+  // --- ÉTATS GLOBAUX ---
   late Future<void> _loadDataFuture;
   List<Map<String, dynamic>> _currentSubThemeQuestionsForStats = [];
   
@@ -24,12 +23,15 @@ class _QuizPageState extends State<QuizPage> {
   int _minLvl = 0; 
   int _maxLvl = 0;
   
-  // Game State
-  Map<String, dynamic>? _currentQuestion;
-  List<Map<String, dynamic>> _allQuestions = [];
+  // --- ÉTAT DU JEU EN COURS ---
+  List<Map<String, dynamic>> _gameQuestions = []; // La liste des 10 questions du pack
+  int _currentQuestionIndex = 0;
+  Map<String, dynamic>? _currentQuestionData;
+  bool _isGameOver = false;
+  int _score = 0;
   bool _isLoadingGame = false;
   
-  // Answer State
+  // Answer State (Question actuelle)
   bool _hasAnswered = false;
   int? _selectedAnswerIndex;
   int? _correctAnswerIndex;
@@ -52,10 +54,10 @@ class _QuizPageState extends State<QuizPage> {
   Future<void> _onSelectSubTheme(SubThemeInfo subTheme) async {
     setState(() {
       _selectedSubTheme = subTheme;
-      _isLoadingGame = true; // On affiche un petit chargement le temps de récupérer les IDs
+      _isLoadingGame = true; 
     });
 
-    // On charge toutes les questions de ce sous-thème pour pouvoir calculer les packs
+    // On charge toutes les questions pour calculer les stats des packs
     final qs = await DataManager.instance.getQuestions(_selectedTheme!.name, subTheme.name);
     
     if (mounted) {
@@ -66,8 +68,9 @@ class _QuizPageState extends State<QuizPage> {
     }
   }
 
-  // Calcule le % de progression d'un pack (0.0 à 1.0)
-  // packIndex : 1 (premier pack de 10) ou 2 (deuxième pack de 10)
+  // --- LOGIQUE DES PACKS ---
+
+  // Calcule le % de progression d'un pack (0.0 à 1.0) pour l'affichage des boutons
   double _calculatePackProgress(int minDiff, int maxDiff, int packIndex) {
     if (_currentSubThemeQuestionsForStats.isEmpty) return 0.0;
 
@@ -77,115 +80,147 @@ class _QuizPageState extends State<QuizPage> {
       return lvl >= minDiff && lvl <= maxDiff;
     }).toList();
 
-    // 2. Trier par ID alphabétique (pour que les packs soient toujours les mêmes)
+    // 2. Trier par ID (Crucial pour la consistance des packs)
     questionsOfLevel.sort((a, b) => (a['id'] ?? '').compareTo(b['id'] ?? ''));
 
-    // 3. Déterminer la tranche (Pack 1: 0-9, Pack 2: 10-19)
+    // 3. Déterminer la tranche
     int startIndex = (packIndex - 1) * 10;
     int endIndex = startIndex + 10;
 
-    // Sécurité si moins de questions que prévu
     if (startIndex >= questionsOfLevel.length) return 0.0;
     if (endIndex > questionsOfLevel.length) endIndex = questionsOfLevel.length;
 
-    // 4. Extraire les questions du pack
+    // 4. Extraire le pack théorique
     final packQuestions = questionsOfLevel.sublist(startIndex, endIndex);
     if (packQuestions.isEmpty) return 0.0;
 
-    // 5. Compter combien sont validées dans le UserProfile
-    final userIds = DataManager.instance.currentUser.answeredQuestionIds;
+    // 5. Compter les validées
+    final userIds = DataManager.instance.currentUser.answeredQuestions;
     int validatedCount = 0;
-    
     for (var q in packQuestions) {
-      if (userIds.contains(q['id'])) {
-        validatedCount++;
-      }
+      if (userIds.contains(q['id'])) validatedCount++;
     }
 
-    return validatedCount / packQuestions.length; // Ex: 5/10 = 0.5
+    return validatedCount / packQuestions.length; 
   }
 
+  // Lance le jeu avec un pack spécifique
   Future<void> _onSelectDifficulty(String label, int min, int max, int packIndex) async {
-    // Note : packIndex (1 ou 2) sert à filtrer le bon chunk de questions
-    
     setState(() {
       _diffLabel = "$label - Pack $packIndex";
       _minLvl = min;
       _maxLvl = max;
+      _isLoadingGame = true;
     });
 
-    // 1. Filtrer la liste déjà chargée par difficulté
+    // 1. On récupère et filtre
     final questionsOfLevel = _currentSubThemeQuestionsForStats.where((q) {
       int lvl = int.tryParse(q['difficulty'].toString()) ?? 0;
       return lvl >= _minLvl && lvl <= _maxLvl;
     }).toList();
 
-    // 2. Trier par ID
+    // 2. On trie par ID pour avoir toujours le même lot pour ce pack
     questionsOfLevel.sort((a, b) => (a['id'] ?? '').compareTo(b['id'] ?? ''));
 
-    // 3. Sélectionner le Pack (10 questions)
+    // 3. On coupe la part du gâteau (le pack de 10)
     int startIndex = (packIndex - 1) * 10;
     int endIndex = startIndex + 10;
     
     if (startIndex >= questionsOfLevel.length) {
-       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Ce pack est vide pour l'instant !"), backgroundColor: Colors.orange));
+       setState(() => _isLoadingGame = false);
+       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Ce pack est vide !"), backgroundColor: Colors.orange));
        return;
     }
     if (endIndex > questionsOfLevel.length) endIndex = questionsOfLevel.length;
 
-    final packQuestions = questionsOfLevel.sublist(startIndex, endIndex);
+    List<Map<String, dynamic>> selectedPack = questionsOfLevel.sublist(startIndex, endIndex);
+
+    // 4. ON MÉLANGE LE PACK POUR LE JEU (Gameplay aléatoire mais contenu fixe)
+    selectedPack.shuffle();
 
     if (mounted) {
       setState(() {
-        _allQuestions = packQuestions;
-        _nextQuestion();
+        _gameQuestions = selectedPack;
+        _currentQuestionIndex = 0;
+        _score = 0;
+        _isGameOver = false;
+        
+        // Initialisation de la première question
+        if (_gameQuestions.isNotEmpty) {
+          _currentQuestionData = _gameQuestions[0];
+        }
+        
+        _hasAnswered = false;
+        _selectedAnswerIndex = null;
+        _correctAnswerIndex = null;
+        _isLoadingGame = false;
       });
     }
   }
 
+  // --- LOGIQUE DU JEU ---
+
   void _nextQuestion() {
-    setState(() {
-      _currentQuestion = _allQuestions[Random().nextInt(_allQuestions.length)];
-      _hasAnswered = false;
-      _selectedAnswerIndex = null;
-      _correctAnswerIndex = null;
-    });
+    if (_currentQuestionIndex < _gameQuestions.length - 1) {
+      // Question suivante
+      setState(() {
+        _currentQuestionIndex++;
+        _currentQuestionData = _gameQuestions[_currentQuestionIndex];
+        _hasAnswered = false;
+        _selectedAnswerIndex = null;
+        _correctAnswerIndex = null;
+      });
+    } else {
+      // Fin du jeu
+      setState(() {
+        _isGameOver = true;
+      });
+    }
   }
 
   void _onAnswer(int index, String text, List<String> props) {
     if (_hasAnswered) return;
 
-    final correctText = _currentQuestion!['reponse']?.toString() ?? "";
+    final correctText = _currentQuestionData!['reponse']?.toString() ?? "";
+    // On trouve l'index correct dans la liste originale des propositions
     int correctIdx = props.indexWhere((p) => p.trim() == correctText.trim());
     if (correctIdx == -1) correctIdx = 0; 
 
+    bool isCorrect = (index == correctIdx);
+
+    // Sauvegarde BDD
     DataManager.instance.addAnswer(
-      index == correctIdx, 
-      _currentQuestion!['id'] ?? "", 
+      isCorrect, 
+      _currentQuestionData!['id'] ?? "", 
       text, 
       _selectedTheme!.name
     );
 
-    Map<String, dynamic> newStats = Map.from(_currentQuestion!['answerStats'] ?? {});
+    // Mise à jour stats locales pour affichage immédiat
+    Map<String, dynamic> newStats = Map.from(_currentQuestionData!['answerStats'] ?? {});
     newStats[text] = (int.tryParse(newStats[text].toString()) ?? 0) + 1;
     
     setState(() {
       _hasAnswered = true;
       _selectedAnswerIndex = index;
       _correctAnswerIndex = correctIdx;
-      _currentQuestion!['answerStats'] = newStats;
-      _currentQuestion!['timesAnswered'] = (_currentQuestion!['timesAnswered'] ?? 0) + 1;
-      if (index == correctIdx) {
-        _currentQuestion!['timesCorrect'] = (_currentQuestion!['timesCorrect'] ?? 0) + 1;
+      if (isCorrect) _score++; // On incrémente le score de la session
+      
+      _currentQuestionData!['answerStats'] = newStats;
+      _currentQuestionData!['timesAnswered'] = (_currentQuestionData!['timesAnswered'] ?? 0) + 1;
+      if (isCorrect) {
+        _currentQuestionData!['timesCorrect'] = (_currentQuestionData!['timesCorrect'] ?? 0) + 1;
       }
     });
   }
 
   void _onBack() {
     setState(() {
-      if (_currentQuestion != null) {
-        _currentQuestion = null;
-        _allQuestions = [];
+      if (_currentQuestionData != null || _isGameOver) {
+        // Retour depuis le jeu vers la sélection de difficulté
+        _currentQuestionData = null;
+        _gameQuestions = [];
+        _isGameOver = false;
       } else if (_selectedSubTheme != null) {
         _selectedSubTheme = null;
       } else if (_selectedTheme != null) {
@@ -196,76 +231,47 @@ class _QuizPageState extends State<QuizPage> {
 
   void _onQuitGame() {
     setState(() {
-      _currentQuestion = null;
-      _allQuestions = [];
+      _currentQuestionData = null;
+      _gameQuestions = [];
+      _isGameOver = false;
     });
   }
 
-  // --- CALCULS DE PROGRESSION ---
+  // --- CALCULS DE PROGRESSION GLOBALE ---
 
   Map<String, double> _calculateThemeProgressMap() {
+    // ... (Ton code existant inchangé) ...
     final user = DataManager.instance.currentUser;
     Map<String, double> progressMap = {};
     Map<String, int> playerScores = {};
-
     user.scores.forEach((key, value) {
       String mainTheme = key.contains('-') ? key.split('-')[0].trim() : key;
-      int points = 0;
-      
-      if (value is Map) {
-        final valMap = value as Map<dynamic, dynamic>; 
-        points = (valMap['dynamicScore'] as num?)?.toInt() ?? 0;
-      } else      points = value.toInt();
-    
-
+      int points = (value is Map) ? ((value as Map)['dynamicScore'] as num?)?.toInt() ?? 0 : (value as num).toInt();
       playerScores[mainTheme] = (playerScores[mainTheme] ?? 0) + points;
     });
-
     playerScores.forEach((theme, score) {
-      int totalQuestionsAvailable = DataManager.instance.countTotalQuestionsForTheme(theme);
-      if (totalQuestionsAvailable == 0) totalQuestionsAvailable = 1;
-      double percent = score / totalQuestionsAvailable;
-      if (percent > 1.0) percent = 1.0; 
-      progressMap[theme] = percent;
+      int total = DataManager.instance.countTotalQuestionsForTheme(theme);
+      if (total == 0) total = 1;
+      progressMap[theme] = (score / total).clamp(0.0, 1.0);
     });
-
     return progressMap;
   }
 
-  // NOUVEAU : Calcul pour les sous-thèmes
   Map<String, double> _calculateSubThemeProgressMap() {
+    // ... (Ton code existant inchangé) ...
     final user = DataManager.instance.currentUser;
     Map<String, double> progressMap = {};
-    
     user.scores.forEach((key, value) {
-      // key = "Theme-SousTheme"
       if (!key.contains('-')) return;
-
-      int points = 0;
-      if (value is Map) {
-        final valMap = value as Map<dynamic, dynamic>;
-        points = (valMap['dynamicScore'] as num?)?.toInt() ?? 0;
-      } else      points = value.toInt();
-    
-
+      int points = (value is Map) ? ((value as Map)['dynamicScore'] as num?)?.toInt() ?? 0 : (value as num).toInt();
       try {
         String themeName = key.split('-')[0];
         String subThemeName = key.split('-')[1];
-        
-        // On récupère le total précis via DataManager
         int total = DataManager.instance.countTotalQuestionsForSubTheme(themeName, subThemeName);
         if (total == 0) total = 1;
-
-        double percent = points / total;
-        if (percent > 1.0) percent = 1.0;
-        
-        // On stocke par nom de sous-thème
-        progressMap[subThemeName] = percent; 
-      } catch (e) {
-        // Ignore parsing errors
-      }
+        progressMap[subThemeName] = (points / total).clamp(0.0, 1.0);
+      } catch (e) { }
     });
-
     return progressMap;
   }
 
@@ -290,17 +296,24 @@ class _QuizPageState extends State<QuizPage> {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              if (_currentQuestion != null) {
+              // CONDITION 1 : Le jeu est en cours OU le jeu est fini (Ecran de fin)
+              if (_currentQuestionData != null || _isGameOver) {
                 return QuizGameView(
-                  key: ValueKey(_currentQuestion!['id']),
-                  questionData: _currentQuestion!,
-                  difficultyLabel: _diffLabel!,
+                  // Clé unique pour forcer le rebuild si la question change
+                  key: _isGameOver ? const ValueKey('GameOver') : ValueKey(_currentQuestionData!['id']),
+                  questionData: _isGameOver ? null : _currentQuestionData,
+                  difficultyLabel: _diffLabel ?? "",
                   hasAnswered: _hasAnswered,
                   selectedAnswerIndex: _selectedAnswerIndex,
                   correctAnswerIndex: _correctAnswerIndex,
                   onAnswer: _onAnswer,
                   onNext: _nextQuestion,
                   onQuit: _onQuitGame,
+                  // Paramètres de fin
+                  isGameOver: _isGameOver,
+                  score: _score,
+                  totalQuestions: _gameQuestions.length,
+                  questionsHistory: _gameQuestions
                 );
               }
 
@@ -308,8 +321,9 @@ class _QuizPageState extends State<QuizPage> {
                 return const Center(child: CircularProgressIndicator());
               }
 
+              // CONDITION 2 : Navigation (Thèmes / Sous-Thèmes / Packs)
               final progressMap = _calculateThemeProgressMap();
-              final subThemeProgressMap = _calculateSubThemeProgressMap(); // <--- On calcule ici
+              final subThemeProgressMap = _calculateSubThemeProgressMap();
 
               return ScrollConfiguration(
                 behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
@@ -331,7 +345,6 @@ class _QuizPageState extends State<QuizPage> {
                               ],
                             );
                           },
-                          // On passe les deux maps
                           child: _buildSelectionView(progressMap, subThemeProgressMap),
                         ),
                       ),
@@ -351,9 +364,7 @@ class _QuizPageState extends State<QuizPage> {
       return DifficultySelectionView(
         theme: _selectedTheme!,
         subTheme: _selectedSubTheme!,
-        // On passe notre fonction de calcul
         progressCalculator: _calculatePackProgress, 
-        // On met à jour la signature du callback pour inclure le numéro de pack
         onSelect: (label, min, max, packNum) => _onSelectDifficulty(label, min, max, packNum),
         onBack: _onBack,
       );
@@ -362,7 +373,7 @@ class _QuizPageState extends State<QuizPage> {
       return SubThemeSelectionView(
         theme: _selectedTheme!,
         subThemes: DataManager.instance.getSubThemesFor(_selectedTheme!.name),
-        progressMap: subThemeProgressMap, // <--- Transmission
+        progressMap: subThemeProgressMap,
         onSelect: _onSelectSubTheme,
         onBack: _onBack,
       );
@@ -379,12 +390,12 @@ class _QuizPatternPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final Paint paintStroke = Paint()
-      ..color = Colors.blueGrey.withOpacity(0.06)
+      ..color = Colors.blueGrey.withOpacity(0.2)
       ..strokeWidth = 1.2
       ..style = PaintingStyle.stroke;
 
     final Paint paintFill = Paint()
-      ..color = Colors.blueGrey.withOpacity(0.06)
+      ..color = Colors.blueGrey.withOpacity(0.2)
       ..style = PaintingStyle.fill;
 
     const double gridSize = 50.0;

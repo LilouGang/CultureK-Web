@@ -6,6 +6,7 @@ const admin = require("firebase-admin");
 admin.initializeApp();
 const db = admin.firestore();
 
+/*
 exports.updateQuestionDifficulty = onSchedule("every 24 hours", async (event) => {
   logger.info("Début du job de mise à jour de la difficulté.");
 
@@ -157,6 +158,72 @@ exports.cleanupUserData = onSchedule("every 24 hours", async (event) => {
     logger.info(`Nettoyage terminé. ${usersToUpdate} documents utilisateur mis à jour.`);
   } else {
     logger.info("Aucun utilisateur n'avait de données à nettoyer.");
+  }
+
+  return null;
+});
+*/
+
+exports.cleanupOldDailyActivity = onSchedule("every 24 hours", async (event) => {
+  logger.info("Début du job de nettoyage de l'activité quotidienne.");
+
+  // 1. On calcule la date limite (il y a 10 jours)
+  const tenDaysAgo = new Date();
+  tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+
+  // On récupère tous les documents de la collection "Users"
+  const usersSnapshot = await db.collection("Users").get();
+
+  if (usersSnapshot.empty) {
+    logger.info("Aucun utilisateur à traiter. Arrêt.");
+    return null;
+  }
+
+  // On utilise un "batch" pour regrouper toutes les écritures. C'est plus efficace.
+  const batch = db.batch();
+  let usersToUpdateCount = 0;
+
+  // 2. On parcourt chaque utilisateur
+  usersSnapshot.forEach((userDoc) => {
+    const userData = userDoc.data();
+    
+    // On vérifie si l'utilisateur a des données d'activité
+    if (userData.dailyActivityByTheme) {
+      const dailyActivity = userData.dailyActivityByTheme;
+      let needsUpdate = false;
+      const updates = {};
+
+      // 3. On parcourt chaque thème (ex: "Géographie", "Histoire")
+      for (const theme in dailyActivity) {
+        const themeActivity = dailyActivity[theme];
+        
+        // 4. On parcourt chaque date pour ce thème
+        for (const dateString in themeActivity) {
+          const activityDate = new Date(dateString); // On convertit la date "YYYY-MM-DD" en objet Date
+          
+          // 5. Si la date est plus ancienne que notre limite, on la marque pour suppression
+          if (activityDate < tenDaysAgo) {
+            // On utilise la notation "pointée" pour supprimer un champ dans une map
+            updates[`dailyActivityByTheme.${theme}.${dateString}`] = admin.firestore.FieldValue.delete();
+            needsUpdate = true;
+          }
+        }
+      }
+      
+      // Si on a trouvé des champs à supprimer pour cet utilisateur, on ajoute l'opération au batch
+      if (needsUpdate) {
+        batch.update(userDoc.ref, updates);
+        usersToUpdateCount++;
+      }
+    }
+  });
+
+  // 6. On exécute toutes les opérations de suppression en une seule fois
+  if (usersToUpdateCount > 0) {
+    await batch.commit();
+    logger.info(`Nettoyage de l'activité terminé. ${usersToUpdateCount} documents utilisateur mis à jour.`);
+  } else {
+    logger.info("Aucune donnée d'activité obsolète à nettoyer.");
   }
 
   return null;
