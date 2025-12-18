@@ -11,21 +11,19 @@ class GuestView extends StatefulWidget {
 }
 
 class _GuestViewState extends State<GuestView> {
-  // Gestion des 3 états : Login, Inscription, ou Mot de passe oublié
   bool _isLogin = true;
   bool _isForgotPassword = false; 
 
   final _formKey = GlobalKey<FormState>();
   
-  // Contrôleurs
-  final _userOrEmailCtrl = TextEditingController(); // Sert pour Login ET Récupération
-  final _emailCtrl = TextEditingController();       // Pour l'inscription
-  final _usernameCtrl = TextEditingController();    // Pour l'inscription
+  final _userOrEmailCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _usernameCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   
   bool _isLoading = false;
   String? _errorMessage;
-  String? _successMessage; // Pour confirmer l'envoi du mail
+  String? _successMessage;
 
   @override
   void dispose() {
@@ -47,22 +45,17 @@ class _GuestViewState extends State<GuestView> {
     
     try {
       if (_isForgotPassword) {
-        // --- LOGIQUE RÉCUPÉRATION ---
         await context.read<DataManager>().resetPassword(_userOrEmailCtrl.text);
         setState(() {
           _successMessage = "Email de réinitialisation envoyé !";
-          // On ne quitte pas forcément l'écran tout de suite pour laisser lire le message
-          // Ou on peut repasser en mode login après un délai :
           Future.delayed(const Duration(seconds: 2), () {
             if (mounted) setState(() { _isForgotPassword = false; _successMessage = null; });
           });
         });
 
       } else if (_isLogin) {
-        // --- LOGIQUE LOGIN ---
         await context.read<DataManager>().signIn(_userOrEmailCtrl.text, _passCtrl.text);
       } else {
-        // --- LOGIQUE SIGNUP ---
         await context.read<DataManager>().signUp(_usernameCtrl.text, _emailCtrl.text, _passCtrl.text);
       }
     } catch (e) {
@@ -73,7 +66,7 @@ class _GuestViewState extends State<GuestView> {
         if (e.code == "wrong-password") msg = "Mot de passe incorrect.";
         if (e.code == "email-already-in-use") msg = "Cet email est déjà utilisé.";
         if (e.code == "username-already-in-use") msg = "Ce pseudo est déjà pris.";
-        if (e.code == "no-email-linked") msg = "Ce compte n'a pas d'email valide."; // Ton erreur custom
+        if (e.code == "no-email-linked") msg = "Ce compte n'a pas d'email valide.";
       } else {
         msg = e.toString(); 
       }
@@ -85,12 +78,10 @@ class _GuestViewState extends State<GuestView> {
 
   @override
   Widget build(BuildContext context) {
-    // Titre dynamique
     String title = "Créer un compte";
     if (_isLogin) title = "Bon retour !";
     if (_isForgotPassword) title = "Récupération";
 
-    // Sous-titre dynamique
     String subtitle = "Rentre tes informations pour continuer.";
     if (_isForgotPassword) subtitle = "Entre ton email ou pseudo pour recevoir un lien.";
 
@@ -108,7 +99,6 @@ class _GuestViewState extends State<GuestView> {
           ),
           child: Row(
             children: [
-              // --- PARTIE GAUCHE (Design / Marketing) ---
               Expanded(
                 flex: 5,
                 child: Container(
@@ -145,7 +135,6 @@ class _GuestViewState extends State<GuestView> {
                 ),
               ),
       
-              // --- PARTIE DROITE (Formulaire) ---
               Expanded(
                 flex: 6,
                 child: Padding(
@@ -156,7 +145,6 @@ class _GuestViewState extends State<GuestView> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // TITRE
                         Text(
                           title, 
                           style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Color(0xFF1E293B))
@@ -166,7 +154,6 @@ class _GuestViewState extends State<GuestView> {
                         
                         const SizedBox(height: 24),
       
-                        // --- MESSAGES (Erreur ou Succès) ---
                         if (_errorMessage != null)
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -181,19 +168,14 @@ class _GuestViewState extends State<GuestView> {
                             decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(8)),
                             child: Row(children: [const Icon(Icons.check_circle_outline, color: Colors.green, size: 18), const SizedBox(width: 8), Expanded(child: Text(_successMessage!, style: TextStyle(color: Colors.green.shade800, fontSize: 13, fontWeight: FontWeight.bold)))])
                           ),
-      
-                        // --- CHAMPS ---
                         
                         if (_isForgotPassword) ...[
-                          // MODE : MOT DE PASSE OUBLIÉ
                           _ModernInput(label: "Email ou Pseudo", icon: Icons.mail_outline, controller: _userOrEmailCtrl),
                         
                         ] else if (_isLogin) ...[
-                          // MODE : LOGIN
                           _ModernInput(label: "Email ou Pseudo", icon: Icons.person_outline, controller: _userOrEmailCtrl),
                           
-                          // --- LIEN MOT DE PASSE OUBLIÉ (ESPACEMENT ÉGAL) ---
-                          const SizedBox(height: 6), // Espace AU DESSUS
+                          const SizedBox(height: 6),
                           Align(
                             alignment: Alignment.centerRight, 
                             child: InkWell(
@@ -207,13 +189,11 @@ class _GuestViewState extends State<GuestView> {
                               child: const Text("Mot de passe oublié ?", style: TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.w600, fontSize: 12))
                             )
                           ),
-                          const SizedBox(height: 6), // Espace EN DESSOUS (Symétrique)
-                          // --------------------------------------------------
+                          const SizedBox(height: 6),
 
                           _ModernInput(label: "Mot de passe", icon: Icons.lock_outline, controller: _passCtrl, isPass: true),
                         
                         ] else ...[
-                          // MODE : INSCRIPTION
                           _ModernInput(label: "Pseudo", icon: Icons.person, controller: _usernameCtrl),
                           const SizedBox(height: 24),
                           _ModernInput(label: "Email (facultatif)", icon: Icons.alternate_email, controller: _emailCtrl, isOptional: true),
@@ -223,7 +203,6 @@ class _GuestViewState extends State<GuestView> {
       
                         const SizedBox(height: 24),
                         
-                        // --- BOUTON PRINCIPAL ---
                         SizedBox(
                           height: 48,
                           child: ElevatedButton(
@@ -245,9 +224,7 @@ class _GuestViewState extends State<GuestView> {
       
                         const SizedBox(height: 16),
                         
-                        // --- NAVIGATION BASSE ---
                         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                          // Si Mode récupération : Bouton Retour
                           if (_isForgotPassword)
                              TextButton.icon(
                               onPressed: () => setState(() { _isForgotPassword = false; _errorMessage = null; _successMessage = null; }),
@@ -255,7 +232,6 @@ class _GuestViewState extends State<GuestView> {
                               label: const Text("Retour à la connexion", style: TextStyle(color: Colors.blueGrey, fontWeight: FontWeight.bold, fontSize: 13))
                             )
                           
-                          // Si Mode Login/Signup : Switch habituel
                           else ...[
                             Text(_isLogin ? "Nouveau ici ?" : "Déjà un compte ?", style: TextStyle(color: Colors.blueGrey[400], fontSize: 13)),
                             TextButton(

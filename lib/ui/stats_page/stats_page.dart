@@ -5,7 +5,6 @@ import 'widgets/activity_chart.dart';
 import 'widgets/stat_card.dart';
 
 class StatsPage extends StatefulWidget {
-  // Callback pour rediriger vers la page de connexion
   final VoidCallback? onGoToLogin;
 
   const StatsPage({super.key, this.onGoToLogin});
@@ -33,7 +32,6 @@ class _StatsPageState extends State<StatsPage> {
     super.dispose();
   }
 
-  // --- LOGIQUE DE TRI ---
   Map<String, dynamic> _calculateInsights() {
     final user = DataManager.instance.currentUser;
     final Map<String, dynamic> rawScores = user.scores; 
@@ -70,26 +68,19 @@ class _StatsPageState extends State<StatsPage> {
 
     final user = DataManager.instance.currentUser;
 
-    // --- VUE INVITÉ ---
     if (user.id == 'guest') {
       return _GuestStatsView(onGoToLogin: widget.onGoToLogin);
     }
 
-    // --- DASHBOARD CONNECTÉ (LOGIQUE MISE À JOUR) ---
     final totalQuestionsDb = DataManager.instance.totalQuestionsInDb > 0 ? DataManager.instance.totalQuestionsInDb : 1;
     
-    // 1. VOLUME (Compteur bête et méchant)
     final int volumeReponses = user.totalAnswers;
 
-    // 2. PROGRESSION (Questions uniques découvertes)
     final int questionsUniquesVues = user.seenQuestionIds.length;
     
-    // 3. COMPLÉTION (% de la base de données découverte)
     double completionPercent = (questionsUniquesVues / totalQuestionsDb) * 100;
     if (completionPercent > 100) completionPercent = 100;
 
-    // 4. PRÉCISION (Maîtrise / Découverte)
-    // Combien de questions je maîtrise PARMI celles que j'ai vues ?
     double accuracyPercent = 0.0;
     if (questionsUniquesVues > 0) {
       accuracyPercent = (user.answeredQuestions.length / questionsUniquesVues) * 100;
@@ -100,13 +91,11 @@ class _StatsPageState extends State<StatsPage> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
-      // 1. Le ScrollView est maintenant LE PARENT PRINCIPAL
       body: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
         child: Container(
-          // 2. On force la largeur à l'infini pour que les côtés vides soient scrollables
           width: double.infinity,
-          alignment: Alignment.center, // Remplace le widget Center
+          alignment: Alignment.center,
           padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 60.0),
           
           child: ConstrainedBox(
@@ -138,9 +127,9 @@ class _StatsPageState extends State<StatsPage> {
                       children: [
                         _StaggeredReveal(delay: 1, child: StatCard(
                           title: "Progression", 
-                          value: "$questionsUniquesVues", // Utilise seenQuestionIds.length
+                          value: "$questionsUniquesVues",
                           suffix: "/ $totalQuestionsDb", 
-                          description: "Questions uniques.", // Texte mis à jour
+                          description: "Questions uniques.",
                           icon: Icons.auto_graph_rounded, 
                           color: const Color(0xFF6366F1)
                         )),
@@ -153,13 +142,13 @@ class _StatsPageState extends State<StatsPage> {
                         )),
                         _StaggeredReveal(delay: 3, child: StatCard(
                           title: "Volume", 
-                          value: "$volumeReponses", // Utilise totalAnswers
+                          value: "$volumeReponses",
                           description: "Total clics.", 
                           icon: Icons.layers_rounded, 
                           color: const Color(0xFF8B5CF6)
                         )),
                         _StaggeredReveal(delay: 4, child: StatCard(
-                          title: "Maîtrise", // Renommé de Précision à Maîtrise pour être plus clair
+                          title: "Maîtrise",
                           value: "${accuracyPercent.toStringAsFixed(1)}%", 
                           description: "Acquis / Vus.", 
                           icon: Icons.verified_rounded, 
@@ -245,9 +234,6 @@ class _StatsPageState extends State<StatsPage> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// VUE INVITÉ (DESIGN ÉPURÉ & ACTIONABLE)
-// ---------------------------------------------------------------------------
 class _GuestStatsView extends StatelessWidget {
   final VoidCallback? onGoToLogin;
   const _GuestStatsView({this.onGoToLogin});
@@ -264,7 +250,6 @@ class _GuestStatsView extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Icone propre sur fond blanc
                 Container(
                   padding: const EdgeInsets.all(28),
                   decoration: BoxDecoration(
@@ -278,7 +263,6 @@ class _GuestStatsView extends StatelessWidget {
                 ),
                 const SizedBox(height: 40),
                 
-                // Titre
                 const Text(
                   "Vos statistiques vous attendent",
                   textAlign: TextAlign.center,
@@ -291,7 +275,6 @@ class _GuestStatsView extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 
-                // Texte descriptif (Sans cadre, direct sur fond)
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 20),
                   child: Text(
@@ -307,13 +290,12 @@ class _GuestStatsView extends StatelessWidget {
                 ),
                 const SizedBox(height: 48),
                 
-                // Bouton de connexion
                 SizedBox(
                   height: 56,
                   child: ElevatedButton.icon(
                     onPressed: () {
                       if (onGoToLogin != null) {
-                        onGoToLogin!(); // Déclenche la navigation
+                        onGoToLogin!();
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Veuillez aller dans l'onglet Profil pour vous connecter.")));
                       }
@@ -340,9 +322,6 @@ class _GuestStatsView extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// ANIMATION CASCADE (Inchangée)
-// ---------------------------------------------------------------------------
 class _StaggeredReveal extends StatefulWidget {
   final Widget child;
   final int delay;

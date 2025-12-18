@@ -7,8 +7,6 @@ admin.initializeApp({
 
 const db = admin.firestore();
 
-// --- CONFIGURATION DE LA SUPPRESSION ---
-
 const COLLECTION_NAME = "Questions";
 
 async function deleteFilteredDocuments() {
@@ -27,17 +25,14 @@ async function deleteFilteredDocuments() {
 
   console.log(`${snapshot.size} document(s) trouvé(s). Début de la suppression...`);
 
-  // 3. On prépare le batch de suppression
   const batch = db.batch();
   snapshot.docs.forEach(doc => {
     batch.delete(doc.ref);
   });
 
-  // 4. On exécute la suppression
   await batch.commit();
 
   console.log(`Suppression de ${snapshot.size} document(s) terminée avec succès !`);
 }
 
-// On lance la fonction
 deleteFilteredDocuments().catch(console.error);

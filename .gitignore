@@ -49,5 +49,5 @@ app.*.map.json
 .env
 
 # Fichiers et dossiers du SDK Flutter
-/flutter/  <-- AJOUTE CETTE LIGNE
+/flutter/
 .vercel

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../data/data_manager.dart';
 
-// --- ENUM ---
 enum _AnswerState { neutral, correct, wrong, disabled }
 
 class QuizGameView extends StatefulWidget {
@@ -142,14 +141,11 @@ class _QuizGameViewState extends State<QuizGameView> {
                       padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 24),
                       child: Column(
                         children: [
-                          // --- HEADER CORRIGÉ (STACK) ---
-                          // Utilisation de Stack pour forcer le centrage absolu
                           SizedBox(
                             height: 48,
                             child: Stack(
                               alignment: Alignment.center,
                               children: [
-                                // GAUCHE : Quitter
                                 Align(
                                   alignment: Alignment.centerLeft,
                                   child: TextButton.icon(
@@ -160,7 +156,6 @@ class _QuizGameViewState extends State<QuizGameView> {
                                   ),
                                 ),
 
-                                // CENTRE : Signaler (Pile au milieu)
                                 Align(
                                   alignment: Alignment.center,
                                   child: TextButton.icon(
@@ -176,7 +171,6 @@ class _QuizGameViewState extends State<QuizGameView> {
                                   ),
                                 ),
 
-                                // DROITE : Niveau
                                 Align(
                                   alignment: Alignment.centerRight,
                                   child: Container(
@@ -191,7 +185,6 @@ class _QuizGameViewState extends State<QuizGameView> {
                           
                           const SizedBox(height: 32),
                           
-                          // Question
                           Container(
                             width: double.infinity,
                             padding: const EdgeInsets.all(32),
@@ -208,7 +201,6 @@ class _QuizGameViewState extends State<QuizGameView> {
                           ),
                           const SizedBox(height: 32),
                           
-                          // Réponses
                           GridView.builder(
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
@@ -259,7 +251,6 @@ class _QuizGameViewState extends State<QuizGameView> {
   }
 }
 
-// --- POP-UP ÉDITEUR "PRO" CORRIGÉE ---
 class _ReportDialogEditor extends StatefulWidget {
   final String questionId;
   final String initialQuestion;
@@ -279,7 +270,7 @@ class _ReportDialogEditor extends StatefulWidget {
 
 class _ReportDialogEditorState extends State<_ReportDialogEditor> {
   late TextEditingController _questionCtrl;
-  late TextEditingController _propsBlockCtrl; // UN SEUL CONTROLEUR POUR TOUTES LES REPONSES
+  late TextEditingController _propsBlockCtrl;
   late TextEditingController _explanationCtrl;
   bool _isSending = false;
 
@@ -288,8 +279,6 @@ class _ReportDialogEditorState extends State<_ReportDialogEditor> {
     super.initState();
     _questionCtrl = TextEditingController(text: widget.initialQuestion);
     _explanationCtrl = TextEditingController(text: widget.initialExplanation);
-    
-    // On joint les propositions par un saut de ligne
     _propsBlockCtrl = TextEditingController(text: widget.initialPropositions.join('\n'));
   }
 
@@ -304,11 +293,10 @@ class _ReportDialogEditorState extends State<_ReportDialogEditor> {
   Future<void> _sendDetailedReport() async {
     setState(() => _isSending = true);
     try {
-      // On récupère simplement le texte des contrôleurs
       await DataManager.instance.reportQuestionDetailed(
         questionId: widget.questionId,
         question: _questionCtrl.text.trim(),
-        propositions: _propsBlockCtrl.text.trim(), // On envoie le bloc tel quel
+        propositions: _propsBlockCtrl.text.trim(),
         explanation: _explanationCtrl.text.trim(),
       );
 
@@ -371,7 +359,6 @@ class _ReportDialogEditorState extends State<_ReportDialogEditor> {
               _EditorTextField(controller: _questionCtrl, maxLines: 3),
               const SizedBox(height: 24),
 
-              // UN SEUL BLOC POUR LES RÉPONSES
               _EditorLabel(label: "Les 4 Propositions (une par ligne)"),
               _EditorTextField(controller: _propsBlockCtrl, maxLines: 6),
               const SizedBox(height: 12),
@@ -414,7 +401,6 @@ class _ReportDialogEditorState extends State<_ReportDialogEditor> {
   }
 }
 
-// Widgets utilitaires pour l'éditeur
 class _EditorLabel extends StatelessWidget {
   final String label;
   const _EditorLabel({required this.label});
@@ -506,7 +492,6 @@ class _QuizPatternPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-// --- BOUTON DE RÉPONSE (Inchangé) ---
 class _AnswerButton extends StatefulWidget {
   final String text; final _AnswerState state; final VoidCallback? onTap;
   const _AnswerButton({required this.text, required this.state, this.onTap});
@@ -539,7 +524,6 @@ class _AnswerButtonState extends State<_AnswerButton> {
   }
 }
 
-// --- PANNEAU RÉSULTAT QUESTION (Inchangé) ---
 class _ResultPanel extends StatelessWidget {
   final bool isCorrect; final String? explanation; final dynamic stats; final int totalAnswers; final List<dynamic> propositions; final String correctAnswer; final VoidCallback onNext;
   const _ResultPanel({required this.isCorrect, required this.explanation, required this.stats, required this.totalAnswers, required this.propositions, required this.correctAnswer, required this.onNext});
@@ -571,7 +555,6 @@ class _ResultPanel extends StatelessWidget {
   }
 }
 
-// --- ÉCRAN DE FIN DE PARTIE (Inchangé) ---
 class _QuizResultView extends StatelessWidget {
   final int score;
   final int total;

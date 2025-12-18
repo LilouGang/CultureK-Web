@@ -31,7 +31,6 @@ class StatCard extends StatefulWidget {
       value: value,
       suffix: null,
       description: scoreText,
-      // On utilise des couleurs vibrantes pour les fonds pleins
       color: isPositive ? const Color(0xFF10B981) : const Color(0xFFF43F5E),
       icon: isPositive ? Icons.emoji_events_rounded : Icons.trending_down_rounded,
       isInsight: true,
@@ -49,18 +48,13 @@ class _StatCardState extends State<StatCard> {
   Widget build(BuildContext context) {
     final bool isInsight = widget.isInsight;
 
-    // Si c'est un Insight (Top/Flop), on rend une carte "Pleine" (Solid)
     if (isInsight) {
       return _buildInsightCard();
     }
 
-    // Sinon, on garde la carte standard blanche (StatCard classique)
     return _buildStandardCard();
   }
 
-  // ---------------------------------------------------------------------------
-  // DESIGN 1 : CARTE INSIGHT (TOP / FLOP) - Look "Solid Premium"
-  // ---------------------------------------------------------------------------
   Widget _buildInsightCard() {
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -70,16 +64,13 @@ class _StatCardState extends State<StatCard> {
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOutCubic,
         transform: _isHovered ? Matrix4.identity().scaled(1.02) : Matrix4.identity(),
-        // Clip pour couper l'icône géante qui dépasse
         clipBehavior: Clip.hardEdge, 
         decoration: BoxDecoration(
-          // FOND DÉGRADÉ (Gradient)
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              widget.color, // Couleur vive
-              // Couleur un peu plus sombre vers le bas pour la profondeur
+              widget.color,
               HSLColor.fromColor(widget.color).withLightness(0.45).toColor(), 
             ],
           ),
@@ -94,27 +85,24 @@ class _StatCardState extends State<StatCard> {
         ),
         child: Stack(
           children: [
-            // 1. L'ICÔNE GÉANTE EN FOND (Watermark / Logo)
             Positioned(
               right: -20,
               bottom: -20,
               child: Transform.rotate(
-                angle: -0.2, // Légère rotation
+                angle: -0.2,
                 child: Icon(
                   widget.icon,
-                  size: 140, // Très grand
-                  color: Colors.white.withOpacity(0.15), // Semi-transparent
+                  size: 140,
+                  color: Colors.white.withOpacity(0.15),
                 ),
               ),
             ),
 
-            // 2. LE CONTENU TEXTE
             Padding(
               padding: const EdgeInsets.all(24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // En-tête : Titre et petite icône
                   Row(
                     children: [
                       Container(
@@ -140,14 +128,13 @@ class _StatCardState extends State<StatCard> {
                   
                   const Spacer(),
                   
-                  // NOM DU THÈME (Prend de la place)
                   Text(
                     widget.value,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 28, // Gros texte
+                      fontSize: 28,
                       fontWeight: FontWeight.w900,
                       height: 1.1,
                       letterSpacing: -0.5,
@@ -156,7 +143,6 @@ class _StatCardState extends State<StatCard> {
                   
                   const SizedBox(height: 12),
                   
-                  // SCORE (Badge blanc)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
@@ -169,7 +155,7 @@ class _StatCardState extends State<StatCard> {
                     child: Text(
                       widget.description,
                       style: TextStyle(
-                        color: widget.color, // Le texte prend la couleur du fond (Vert/Rouge)
+                        color: widget.color,
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
                       ),
@@ -184,9 +170,6 @@ class _StatCardState extends State<StatCard> {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // DESIGN 2 : CARTE STANDARD (Blanche)
-  // ---------------------------------------------------------------------------
   Widget _buildStandardCard() {
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -222,7 +205,6 @@ class _StatCardState extends State<StatCard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // En-tête
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -254,7 +236,6 @@ class _StatCardState extends State<StatCard> {
                     ],
                   ),
                 ),
-                // Tooltip
                 Tooltip(
                   message: widget.description,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -276,7 +257,6 @@ class _StatCardState extends State<StatCard> {
               ],
             ),
             const SizedBox(height: 20),
-            // Valeur
             FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,

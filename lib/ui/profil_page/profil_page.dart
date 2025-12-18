@@ -14,14 +14,12 @@ class ProfilPage extends StatelessWidget {
 
     return Scaffold(
       body: BackgroundPattern(
-        // 1. Le ScrollView est ICI (juste après le fond)
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
           child: Container(
-            // 2. On prend toute la largeur
             width: double.infinity,
             alignment: Alignment.center,
-            padding: const EdgeInsets.symmetric(vertical: 40), // Marge verticale pour le scroll
+            padding: const EdgeInsets.symmetric(vertical: 40),
             
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 1100),
@@ -61,17 +59,12 @@ class BackgroundPattern extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // 1. La couleur de fond unie (Gris très clair/Bleuté)
         Container(color: const Color(0xFFF8FAFC)), 
-
-        // 2. Le motif dessiné par-dessus
         Positioned.fill(
           child: CustomPaint(
-            painter: StripePainter(), // Change ici par StripePainter() pour des rayures
+            painter: StripePainter(),
           ),
         ),
-
-        // 3. Le contenu de ta page par-dessus tout
         child,
       ],
     );
@@ -82,12 +75,11 @@ class StripePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final Paint paint = Paint()
-      ..color = Colors.blueGrey.withOpacity(0.03) // Très très léger
+      ..color = Colors.blueGrey.withOpacity(0.03)
       ..strokeWidth = 2;
 
-    const double step = 10; // Espace entre les lignes
+    const double step = 10;
 
-    // On dessine des diagonales
     for (double i = -size.height; i < size.width; i += step) {
       canvas.drawLine(
         Offset(i, 0),

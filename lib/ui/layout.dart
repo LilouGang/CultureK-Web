@@ -31,7 +31,6 @@ class _MainLayoutState extends State<MainLayout> {
     return Scaffold(
       body: Stack(
         children: [
-          // --- 1. LE CONTENU (ARRIÈRE-PLAN) ---
           AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeOutCubic,
@@ -40,7 +39,6 @@ class _MainLayoutState extends State<MainLayout> {
             child: _buildPageContent(),
           ),
 
-          // --- 2. LA SIDEBAR (PREMIER PLAN) ---
           AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeOutCubic,
@@ -114,17 +112,14 @@ class _MainLayoutState extends State<MainLayout> {
     return Container(
       height: 90,
       alignment: Alignment.center,
-      // CORRECTION 1 : Padding symétrique appliqué au conteneur global
       padding: EdgeInsets.symmetric(horizontal: _isSidebarCollapsed ? 0 : 24),
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: Colors.grey.shade100)),
       ),
       child: Row(
-        // spaceBetween va maintenant coller les éléments aux bords du padding défini ci-dessus
         mainAxisAlignment: _isSidebarCollapsed ? MainAxisAlignment.center : MainAxisAlignment.spaceBetween,
         children: [
           if (!_isSidebarCollapsed)
-            // Le padding local a été retiré ici
             const Row(
               children: [
                 Icon(Icons.flash_on_rounded, color: Color(0xFF6366F1), size: 28),
@@ -133,11 +128,10 @@ class _MainLayoutState extends State<MainLayout> {
               ],
             ),
           IconButton(
-            // Le SizedBox(width: 8) final a été retiré ici
             icon: Icon(_isSidebarCollapsed ? Icons.menu_open_rounded : Icons.chevron_left_rounded, color: Colors.blueGrey),
             onPressed: () => setState(() => _isSidebarCollapsed = !_isSidebarCollapsed),
-            padding: EdgeInsets.zero, // Pour un alignement précis
-            constraints: const BoxConstraints(), // Pour un alignement précis
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
           ),
         ],
       ),
@@ -148,13 +142,8 @@ class _MainLayoutState extends State<MainLayout> {
     return Consumer<DataManager>(
       builder: (context, dataManager, child) {
         final user = dataManager.currentUser;
-        
-        // MODIFICATION ICI : On utilise la taille de la liste des questions maîtrisées
         final int currentScore = user.answeredQuestions.length; 
-
-        // Calcul du niveau (1 niveau tous les 50 points)
         final int level = (currentScore / 50).floor() + 1;
-        // Progression vers le prochain niveau
         final int progressTowardsNext = currentScore % 50;
         final double progressPercent = progressTowardsNext / 50.0;
 
@@ -236,8 +225,6 @@ class _MainLayoutState extends State<MainLayout> {
     );
   }
 }
-
-// --- WIDGET SIDEBAR ITEM (Inchangé) ---
 
 class _SidebarItem extends StatelessWidget {
   final IconData icon;

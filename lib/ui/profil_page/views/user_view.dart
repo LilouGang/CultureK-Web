@@ -10,18 +10,15 @@ class UserView extends StatefulWidget {
 }
 
 class _UserViewState extends State<UserView> {
-  // Contrôleurs Infos
   final _usernameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   
-  // Contrôleurs MDP
-  final _fakePassCtrl = TextEditingController(text: "••••••••••••"); // Visuel uniquement
+  final _fakePassCtrl = TextEditingController(text: "••••••••••••");
   final _newPassCtrl = TextEditingController();
   final _confirmPassCtrl = TextEditingController();
 
-  // États
-  bool _isEditingInfo = false; // Pour modifier Username/Email
-  bool _isChangingPassword = false; // Pour la section MDP
+  bool _isEditingInfo = false;
+  bool _isChangingPassword = false;
   bool _isLoading = false;
 
   @override
@@ -35,7 +32,6 @@ class _UserViewState extends State<UserView> {
     _usernameCtrl.text = user.username;
     _emailCtrl.text = user.hasFakeEmail ? "" : user.email;
     
-    // Reset MDP
     _newPassCtrl.clear();
     _confirmPassCtrl.clear();
     
@@ -52,7 +48,6 @@ class _UserViewState extends State<UserView> {
     try {
       final dataManager = context.read<DataManager>();
 
-      // 1. Sauvegarde Infos (si modifiées)
       if (_isEditingInfo) {
         if (_usernameCtrl.text != dataManager.currentUser.username || _emailCtrl.text != dataManager.currentUser.email) {
           await dataManager.updateProfile(
@@ -62,7 +57,6 @@ class _UserViewState extends State<UserView> {
         }
       }
 
-      // 2. Sauvegarde MDP (si activé)
       if (_isChangingPassword) {
         if (_newPassCtrl.text.isEmpty) throw "Le mot de passe est vide.";
         if (_newPassCtrl.text.length < 6) throw "6 caractères minimum requis.";
@@ -72,7 +66,7 @@ class _UserViewState extends State<UserView> {
       }
 
       if (mounted) {
-        _refreshData(); // Tout remettre à zéro
+        _refreshData();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Modifications enregistrées avec succès !"), backgroundColor: Color(0xFF10B981))
         );
@@ -95,14 +89,12 @@ class _UserViewState extends State<UserView> {
         ? "${user.createdAt!.day.toString().padLeft(2,'0')}/${user.createdAt!.month.toString().padLeft(2,'0')}/${user.createdAt!.year}" 
         : "Inconnu";
 
-    // On affiche le bouton Sauvegarder si au moins une modification est en cours
     final bool showSaveButton = _isEditingInfo || _isChangingPassword;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 60),
       child: Column(
         children: [
-          // --- HEADER CARD ---
           Container(
             padding: const EdgeInsets.all(40),
             decoration: BoxDecoration(
@@ -153,7 +145,6 @@ class _UserViewState extends State<UserView> {
 
           const SizedBox(height: 40),
 
-          // --- INFORMATIONS CARD ---
           Container(
             padding: const EdgeInsets.all(40),
             decoration: BoxDecoration(
@@ -169,12 +160,11 @@ class _UserViewState extends State<UserView> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text("Mes Informations", style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Color(0xFF1E293B))),
-                    // Bouton Modifier pour les infos (pas le MDP)
-                    if (!_isChangingPassword) // On évite de tout modifier en même temps pour la clarté
+                    if (!_isChangingPassword)
                       IconButton(
                         onPressed: () {
                           if (_isEditingInfo) {
-                            _refreshData(); // Annuler
+                            _refreshData();
                           } else {
                             setState(() => _isEditingInfo = true);
                           }
@@ -184,20 +174,12 @@ class _UserViewState extends State<UserView> {
                       )
                   ],
                 ),
-                
                 const SizedBox(height: 32),
-                
-                // Champs Infos
                 _ProfileInput(label: "Nom d'utilisateur", icon: Icons.person, controller: _usernameCtrl, enabled: _isEditingInfo),
                 const SizedBox(height: 24),
                 _ProfileInput(label: "Adresse Email", icon: Icons.email, controller: _emailCtrl, enabled: _isEditingInfo),
-                
                 const SizedBox(height: 24),
                 const Divider(height: 40),
-
-                // --- SECTION MOT DE PASSE (DESIGN SPÉCIFIQUE) ---
-                
-                // 1. Champ Principal (Mot de passe actuel masqué OU Nouveau mot de passe)
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -226,12 +208,10 @@ class _UserViewState extends State<UserView> {
                             ),
                           ),
                         ),
-                        
-                        // LE BOUTON DISPARAÎT SI ON EST EN TRAIN DE MODIFIER
                         if (!_isChangingPassword) ...[
                           const SizedBox(width: 12),
                           SizedBox(
-                            height: 48, // HAUTEUR AJUSTÉE POUR MATCHER PARFAITEMENT LE CHAMP
+                            height: 48,
                             child: OutlinedButton(
                               onPressed: () {
                                 setState(() {
@@ -254,14 +234,11 @@ class _UserViewState extends State<UserView> {
                     ),
                   ],
                 ),
-
-                // 2. Champ Confirmation (Apparaît en dessous avec animation)
                 AnimatedCrossFade(
                   firstChild: const SizedBox(width: double.infinity),
                   secondChild: Column(
                     children: [
                       const SizedBox(height: 16),
-                      // On réutilise le widget ProfileInput pour la confirmation car il n'a pas besoin de bouton à droite
                       _ProfileInput(
                         label: "CONFIRMER LE MOT DE PASSE", 
                         icon: Icons.check_circle_outline, 
@@ -274,9 +251,6 @@ class _UserViewState extends State<UserView> {
                   crossFadeState: _isChangingPassword ? CrossFadeState.showSecond : CrossFadeState.showFirst,
                   duration: const Duration(milliseconds: 300),
                 ),
-
-                // --- BOUTONS D'ACTION (SAUVEGARDER) ---
-                // Apparaît si on modifie les infos OU le mot de passe
                 AnimatedSize(
                   duration: const Duration(milliseconds: 300),
                   child: !showSaveButton 
@@ -289,8 +263,8 @@ class _UserViewState extends State<UserView> {
                           TextButton(
                             onPressed: _refreshData,
                             style: TextButton.styleFrom(
-                              backgroundColor: Colors.white, // Force la transparence
-                              foregroundColor: Colors.white, // Couleur du splash/texte
+                              backgroundColor: Colors.white,
+                              foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(horizontal: 16),
                             ),
                             child: const Text("Annuler", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w600)),
@@ -321,7 +295,6 @@ class _UserViewState extends State<UserView> {
 
           const SizedBox(height: 40),
 
-          // --- LOGOUT BUTTON ---
           SizedBox(
             width: double.infinity,
             height: 60,
@@ -332,10 +305,6 @@ class _UserViewState extends State<UserView> {
     );
   }
 }
-
-// ---------------------------------------------------------------------------
-// WIDGETS LOCAUX
-// ---------------------------------------------------------------------------
 
 class _ProfileInput extends StatelessWidget {
   final String label;
@@ -394,7 +363,6 @@ class _LogoutButtonState extends State<_LogoutButton> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           decoration: BoxDecoration(
-            // Fond ROUGE plein si survolé, sinon Transparent
             color: _isHovered ? const Color(0xFFEF4444) : Colors.transparent,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: const Color(0xFFEF4444), width: 1.5),
@@ -402,7 +370,6 @@ class _LogoutButtonState extends State<_LogoutButton> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Icône et Texte BLANCS si survolé
               Icon(Icons.logout_rounded, color: _isHovered ? Colors.white : const Color(0xFFEF4444)),
               const SizedBox(width: 12),
               Text(

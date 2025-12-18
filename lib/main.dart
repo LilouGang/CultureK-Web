@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:provider/provider.dart'; // <--- N'oublie pas cet import !
+import 'package:provider/provider.dart';
 import 'system/firebase_options.dart';
-import 'data/data_manager.dart'; // Importe ton DataManager
+import 'data/data_manager.dart';
 import 'ui/layout.dart';
 
 void main() async {
@@ -15,8 +15,6 @@ void main() async {
   }
 
   runApp(
-    // ON AJOUTE LE PROVIDER ICI
-    // Cela rend le DataManager accessible PARTOUT dans l'application
     ChangeNotifierProvider(
       create: (context) => DataManager.instance,
       child: const MyApp(),
@@ -51,7 +49,6 @@ class NoThumbScrollBehavior extends ScrollBehavior {
   @override
   ScrollPhysics getScrollPhysics(BuildContext context) => const BouncingScrollPhysics();
   
-  // C'est cette ligne qui cache la barre partout
   @override
   Widget buildScrollbar(BuildContext context, Widget child, ScrollableDetails details) {
     return child;

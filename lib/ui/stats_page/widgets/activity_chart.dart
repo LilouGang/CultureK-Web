@@ -29,16 +29,13 @@ class ActivityChart extends StatelessWidget {
   Widget build(BuildContext context) {
     final sortedDates = data.keys.toList()..sort();
     
-    // Pour la légende : on collecte les thèmes qui ont des données
     final Set<String> activeThemes = {};
 
-    // 1. Calcul du vrai maximum et récupération des thèmes
     double trueMaxY = 0;
     for (var dayStats in data.values) {
       int dailyTotal = dayStats.values.fold(0, (sum, val) => sum + val);
       if (dailyTotal > trueMaxY) trueMaxY = dailyTotal.toDouble();
       
-      // On ajoute les thèmes actifs au set
       dayStats.forEach((key, value) {
         if (value > 0) activeThemes.add(key);
       });
@@ -46,10 +43,8 @@ class ActivityChart extends StatelessWidget {
 
     if (trueMaxY == 0) trueMaxY = 5;
 
-    // 2. Intervalle EXACT
     double interval = trueMaxY / 4;
     
-    // 3. Hauteur du graphique
     double chartLimitY = trueMaxY * 1.15;
 
     List<BarChartGroupData> barGroups = [];
@@ -92,7 +87,6 @@ class ActivityChart extends StatelessWidget {
       index++;
     }
 
-    // On trie les thèmes par ordre alphabétique pour la légende
     final sortedActiveThemes = activeThemes.toList()..sort();
 
     return Column(
@@ -196,7 +190,6 @@ class ActivityChart extends StatelessWidget {
 
         const SizedBox(height: 20),
 
-        // --- LÉGENDE DES COULEURS ---
         Wrap(
           spacing: 16,
           runSpacing: 10,

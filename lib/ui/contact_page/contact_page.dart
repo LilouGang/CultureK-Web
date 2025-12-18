@@ -7,17 +7,15 @@ class ContactPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC), // Blanc cassé très pur
+      backgroundColor: const Color(0xFFF8FAFC),
       body: Stack(
         children: [
-          // 1. LE FOND POINTILLÉ (Pattern)
           Positioned.fill(
             child: CustomPaint(
               painter: _DotGridPainter(),
             ),
           ),
 
-          // 2. LE CONTENU
           LayoutBuilder(
             builder: (context, constraints) {
               final bool useScroll = constraints.maxHeight < 600 || constraints.maxWidth < 800;
@@ -27,7 +25,6 @@ class ContactPage extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    // --- EN-TÊTE ---
                     _StaggeredReveal(
                       delay: 0,
                       child: Column(
@@ -57,11 +54,10 @@ class ContactPage extends StatelessWidget {
                       ),
                     ),
 
-                    // --- CARTES (En ligne) ---
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 1000),
                       child: SizedBox(
-                        height: 320, // Hauteur fixe confortable
+                        height: 320,
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
@@ -72,7 +68,6 @@ class ContactPage extends StatelessWidget {
                                   title: "Instagram",
                                   handle: "@killian.lcq_",
                                   url: "https://www.instagram.com/killian.lcq_/",
-                                  // Dégradé Insta
                                   colors: const [Color(0xFF833AB4), Color(0xFFFD1D1D), Color(0xFFF77737)],
                                   icon: Icons.camera_alt_outlined,
                                 ),
@@ -86,7 +81,6 @@ class ContactPage extends StatelessWidget {
                                   title: "LinkedIn",
                                   handle: "Killian Lacaque",
                                   url: "https://www.linkedin.com/in/killian-lacaque/",
-                                  // Bleu LinkedIn
                                   colors: const [Color(0xFF0077B5), Color(0xFF005E93)],
                                   icon: Icons.business_center_outlined,
                                 ),
@@ -100,7 +94,6 @@ class ContactPage extends StatelessWidget {
                                   title: "GitHub",
                                   handle: "@LilouGang",
                                   url: "https://github.com/LilouGang",
-                                  // Noir GitHub
                                   colors: const [Color(0xFF24292E), Color(0xFF000000)],
                                   icon: Icons.code_rounded,
                                 ),
@@ -111,15 +104,14 @@ class ContactPage extends StatelessWidget {
                       ),
                     ),
 
-                    // --- FOOTER FIN ---
                     _StaggeredReveal(
                       delay: 4,
                       child: Text(
                         "© 2025 CultureK • Développé avec Flutter",
                         style: TextStyle(
                           color: Colors.blueGrey.shade300, 
-                          fontSize: 11, // Plus petit
-                          fontWeight: FontWeight.w400 // Plus fin
+                          fontSize: 11,
+                          fontWeight: FontWeight.w400
                         ),
                       ),
                     ),
@@ -139,14 +131,11 @@ class ContactPage extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// WIDGET CARTE COLORÉE (Sans mouvement interne)
-// ---------------------------------------------------------------------------
 class _BrandCard extends StatefulWidget {
   final String title;
   final String handle;
   final String url;
-  final List<Color> colors; // Liste pour gérer les dégradés
+  final List<Color> colors;
   final IconData icon;
 
   const _BrandCard({
@@ -171,7 +160,6 @@ class _BrandCardState extends State<_BrandCard> {
 
   @override
   Widget build(BuildContext context) {
-    // La couleur dominante (pour l'ombre)
     final mainColor = widget.colors.first;
 
     return MouseRegion(
@@ -183,12 +171,10 @@ class _BrandCardState extends State<_BrandCard> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOutCubic,
-          // Seule la carte bouge (lévitation), pas le contenu
           transform: _isHovered 
               ? (Matrix4.identity()..translate(0, -12, 0)..scale(1.02)) 
               : Matrix4.identity(),
           decoration: BoxDecoration(
-            // FOND COLORÉ / DÉGRADÉ
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -196,7 +182,6 @@ class _BrandCardState extends State<_BrandCard> {
             ),
             borderRadius: BorderRadius.circular(32),
             boxShadow: [
-              // L'ombre prend la couleur de la carte
               BoxShadow(
                 color: mainColor.withOpacity(_isHovered ? 0.4 : 0.1),
                 blurRadius: _isHovered ? 40 : 20,
@@ -206,20 +191,17 @@ class _BrandCardState extends State<_BrandCard> {
           ),
           child: Stack(
             children: [
-              // Filigrane (Icône géante en fond)
               Positioned(
                 bottom: -20,
                 right: -20,
                 child: Icon(widget.icon, size: 150, color: Colors.white.withOpacity(0.1)),
               ),
 
-              // Contenu
               Padding(
                 padding: const EdgeInsets.all(32.0),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Icône (Blanc translucide)
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
@@ -232,7 +214,6 @@ class _BrandCardState extends State<_BrandCard> {
                     
                     const Spacer(),
                     
-                    // Textes (En blanc pour contraster avec le fond coloré)
                     Text(
                       widget.title,
                       style: const TextStyle(
@@ -254,7 +235,6 @@ class _BrandCardState extends State<_BrandCard> {
                     
                     const Spacer(),
 
-                    // Bouton (Blanc pour ressortir)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                       decoration: BoxDecoration(
@@ -270,7 +250,7 @@ class _BrandCardState extends State<_BrandCard> {
                           Text(
                             "Visiter",
                             style: TextStyle(
-                              color: mainColor, // Le texte prend la couleur de la marque
+                              color: mainColor,
                               fontWeight: FontWeight.bold,
                               fontSize: 13
                             ),
@@ -291,17 +271,14 @@ class _BrandCardState extends State<_BrandCard> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// PAINTER POUR LE FOND POINTILLÉ
-// ---------------------------------------------------------------------------
 class _DotGridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final Paint paint = Paint()
-      ..color = Colors.blueGrey.withOpacity(0.1) // Points gris légers
+      ..color = Colors.blueGrey.withOpacity(0.1)
       ..style = PaintingStyle.fill;
 
-    const double step = 24; // Espacement
+    const double step = 24;
 
     for (double y = 0; y < size.height; y += step) {
       for (double x = 0; x < size.width; x += step) {
@@ -314,9 +291,6 @@ class _DotGridPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-// ---------------------------------------------------------------------------
-// ANIMATION CASCADE
-// ---------------------------------------------------------------------------
 class _StaggeredReveal extends StatefulWidget {
   final Widget child;
   final int delay;

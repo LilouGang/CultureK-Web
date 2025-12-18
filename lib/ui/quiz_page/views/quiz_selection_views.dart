@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../data/data_manager.dart';
 
-// --- 1. VUE SÉLECTION THÈME ---
 class ThemeSelectionView extends StatelessWidget {
   final List<ThemeInfo> themes;
   final Map<String, double> progressMap;
@@ -48,11 +47,10 @@ class ThemeSelectionView extends StatelessWidget {
   }
 }
 
-// --- 2. VUE SÉLECTION SOUS-THÈME ---
 class SubThemeSelectionView extends StatelessWidget {
   final ThemeInfo theme;
   final List<SubThemeInfo> subThemes;
-  final Map<String, double> progressMap; // <--- NOUVEAU
+  final Map<String, double> progressMap;
   final Function(SubThemeInfo) onSelect;
   final VoidCallback onBack;
 
@@ -60,7 +58,7 @@ class SubThemeSelectionView extends StatelessWidget {
     super.key, 
     required this.theme, 
     required this.subThemes, 
-    required this.progressMap, // <---
+    required this.progressMap,
     required this.onSelect, 
     required this.onBack
   });
@@ -84,7 +82,7 @@ class SubThemeSelectionView extends StatelessWidget {
           runSpacing: 20,
           alignment: WrapAlignment.center,
           children: subThemes.map((st) {
-            double prog = progressMap[st.name] ?? 0.0; // Récup progrès sous-thème
+            double prog = progressMap[st.name] ?? 0.0;
 
             return SizedBox(
               width: 280,
@@ -92,7 +90,7 @@ class SubThemeSelectionView extends StatelessWidget {
               child: _ListSelectionCard(
                 title: st.name,
                 color: _getColorForTheme(theme.name),
-                progress: prog, // <--- TRANSMISSION
+                progress: prog,
                 onTap: () => onSelect(st),
               ),
             );
@@ -103,13 +101,10 @@ class SubThemeSelectionView extends StatelessWidget {
   }
 }
 
-// --- 3. VUE SÉLECTION DIFFICULTÉ (DESIGN PACKS AVEC REMPLISSAGE) ---
 class DifficultySelectionView extends StatelessWidget {
   final ThemeInfo theme;
   final SubThemeInfo subTheme;
-  // Callback modifié pour inclure le numéro de pack
   final Function(String label, int min, int max, int packIndex) onSelect;
-  // Fonction pour récupérer le progrès
   final double Function(int min, int max, int packIndex) progressCalculator;
   final VoidCallback onBack;
 
@@ -118,7 +113,7 @@ class DifficultySelectionView extends StatelessWidget {
     required this.theme, 
     required this.subTheme, 
     required this.onSelect,
-    required this.progressCalculator, // <--- REÇU DEPUIS QUIZPAGE
+    required this.progressCalculator,
     required this.onBack
   });
 
@@ -164,7 +159,6 @@ class DifficultySelectionView extends StatelessWidget {
   }
 }
 
-// --- SECTION DE DIFFICULTÉ ---
 class _DifficultySection extends StatelessWidget {
   final String label;
   final Color color;
@@ -201,11 +195,10 @@ class _DifficultySection extends StatelessWidget {
   }
 }
 
-// --- CARTE PACK "MINIMALISTE & PRO" ---
 class _PackCard extends StatefulWidget {
   final int packNumber;
   final Color color;
-  final double progress; // 0.0 à 1.0
+  final double progress;
   final VoidCallback onTap;
 
   const _PackCard({required this.packNumber, required this.color, required this.progress, required this.onTap});
@@ -229,16 +222,13 @@ class _PackCardState extends State<_PackCard> {
           duration: const Duration(milliseconds: 200),
           height: 160,
           
-          // Animation de zoom
           transform: _hover ? Matrix4.identity().scaled(1.05) : Matrix4.identity(),
           
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(24),
-            // Ombre portée (Néon boosté au survol)
             boxShadow: [
               BoxShadow(
-                // On augmente l'opacité et le spread pour un effet néon plus "glowing"
                 color: _hover ? widget.color.withOpacity(0.6) : Colors.black.withOpacity(0.05),
                 blurRadius: _hover ? 35 : 10,
                 spreadRadius: _hover ? 1 : 0, 
@@ -249,15 +239,12 @@ class _PackCardState extends State<_PackCard> {
           child: Stack(
             alignment: Alignment.bottomCenter,
             children: [
-              // 1. COUCHE DE FOND ET REMPLISSAGE
               ClipRRect(
                 borderRadius: BorderRadius.circular(24),
                 child: Stack(
                   children: [
-                    // Fond global
                     Container(color: widget.color.withOpacity(0.2)),
 
-                    // Remplissage
                     Align(
                       alignment: Alignment.bottomCenter,
                       child: FractionallySizedBox(
@@ -278,7 +265,6 @@ class _PackCardState extends State<_PackCard> {
                 ),
               ),
 
-              // 2. TEXTE
               Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -315,15 +301,13 @@ class _PackCardState extends State<_PackCard> {
                 ),
               ),
 
-              // 3. BORDURE CORRECTIVE (Le fix du flash noir est ici)
               AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(
-                    // FIX : On anime l'opacité de la couleur, pas la couleur elle-même
                     color: widget.color.withOpacity(_hover ? 1.0 : 0.0), 
-                    width: 2.0 // Bordure plus fine (était à 3)
+                    width: 2.0
                   ),
                 ),
               ),
@@ -335,8 +319,6 @@ class _PackCardState extends State<_PackCard> {
   }
 }
 
-// --- WIDGETS LOCAUX ---
-
 class _HeaderTitle extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -347,7 +329,6 @@ class _HeaderTitle extends StatelessWidget {
   }
 }
 
-// CARTE THÈME AVEC CERCLE
 class _SelectionCard extends StatefulWidget {
   final String title; final String subtitle; final IconData icon; final Color color; final double progress; final VoidCallback onTap;
   const _SelectionCard({required this.title, required this.subtitle, required this.icon, required this.color, required this.progress, required this.onTap});
@@ -399,11 +380,10 @@ class _SelectionCardState extends State<_SelectionCard> {
   }
 }
 
-// CARTE LISTE AVEC BARRE DE PROGRESSION
 class _ListSelectionCard extends StatefulWidget {
   final String title; 
   final Color color; 
-  final double progress; // <---
+  final double progress;
   final VoidCallback onTap;
   
   const _ListSelectionCard({required this.title, required this.color, required this.progress, required this.onTap});
@@ -433,7 +413,6 @@ class _ListSelectionCardState extends State<_ListSelectionCard> {
             borderRadius: BorderRadius.circular(16),
             child: Stack(
               children: [
-                // Barre de progression en bas
                 if (widget.progress > 0)
                   Positioned(
                     bottom: 0, left: 0, right: 0, height: 4,
@@ -443,7 +422,6 @@ class _ListSelectionCardState extends State<_ListSelectionCard> {
                     ),
                   ),
                 
-                // Contenu
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Row(

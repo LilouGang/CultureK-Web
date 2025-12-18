@@ -12,7 +12,6 @@ class QuizPage extends StatefulWidget {
 }
 
 class _QuizPageState extends State<QuizPage> {
-  // --- ÉTATS ---
   late Future<void> _loadDataFuture;
   List<Map<String, dynamic>> _currentSubThemeQuestionsForStats = [];
   
@@ -22,7 +21,6 @@ class _QuizPageState extends State<QuizPage> {
   int _minLvl = 0; 
   int _maxLvl = 0;
   
-  // Game State
   List<Map<String, dynamic>> _gameQuestions = []; 
   int _currentQuestionIndex = 0;
   Map<String, dynamic>? _currentQuestionData;
@@ -140,13 +138,12 @@ class _QuizPageState extends State<QuizPage> {
     if (correctIdx == -1) correctIdx = 0; 
     bool isCorrect = (index == correctIdx);
 
-    // MODIFICATION ICI : On passe le sous-thème pour mettre à jour le cache
     DataManager.instance.addAnswer(
       isCorrect, 
       _currentQuestionData!['id'] ?? "", 
       text, 
       _selectedTheme!.name,
-      _selectedSubTheme?.name // <--- Sous-thème passé ici
+      _selectedSubTheme?.name
     );
 
     Map<String, dynamic> newStats = Map.from(_currentQuestionData!['answerStats'] ?? {});
@@ -185,14 +182,11 @@ class _QuizPageState extends State<QuizPage> {
       _isGameOver = false;
     });
   }
-
-  // --- CALCULS DE PROGRESSION GLOBALE (Utilisent maintenant le cache scores) ---
   
   Map<String, double> _calculateThemeProgressMap() {
     final user = DataManager.instance.currentUser;
     Map<String, double> progressMap = {};
     
-    // On utilise la map scores qui est maintenant tenue à jour localement
     for (var theme in DataManager.instance.themes) {
       int score = user.scores[theme.name] ?? 0;
       int total = DataManager.instance.countTotalQuestionsForTheme(theme.name);

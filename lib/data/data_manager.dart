@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-// --- MODÈLES ---
-
 class ThemeInfo {
   final String name;
   ThemeInfo({required this.name});
@@ -31,18 +29,9 @@ class UserProfile {
   String username;
   String email;
   DateTime? createdAt;
-  
-  // 1. VOLUME
   int totalAnswers; 
-
-  // 2. PROGRESSION
   List<String> seenQuestionIds;
-
-  // 3. MAÎTRISE (Source de vérité)
   List<String> answeredQuestions;
-
-  // 4. CACHE SCORES (Pour affichage rapide des thèmes)
-  // Clé: "ThemeName" ou "ThemeName-SubThemeName" -> Valeur: Nombre de questions validées
   Map<String, int> scores; 
   
   Map<String, Map<String, int>> dailyActivity; 
@@ -55,7 +44,7 @@ class UserProfile {
     this.createdAt,
     this.seenQuestionIds = const [],
     this.answeredQuestions = const [],
-    this.scores = const {}, // Réintroduction du cache
+    this.scores = const {},
     this.dailyActivity = const {},
   });
 
@@ -101,7 +90,6 @@ class UserProfile {
   }
 }
 
-// --- GESTIONNAIRE DE DONNÉES ---
 
 class DataManager with ChangeNotifier {
   DataManager._privateConstructor();
@@ -172,7 +160,6 @@ class DataManager with ChangeNotifier {
     }
   }
 
-  // --- AUTHENTIFICATION ---
   Future<void> signIn(String identifier, String password) async {
     try {
       String emailToUse = identifier.trim();
@@ -212,7 +199,7 @@ class DataManager with ChangeNotifier {
         'createdAt': FieldValue.serverTimestamp(),
         'answeredQuestions': [],
         'seenQuestionIds': [],
-        'scores': {}, // Initialisation du cache
+        'scores': {}, 
       });
       
       currentUser = newUser;
@@ -273,7 +260,6 @@ class DataManager with ChangeNotifier {
       DateTime? createdDate;
       if (data['createdAt'] != null && data['createdAt'] is Timestamp) createdDate = (data['createdAt'] as Timestamp).toDate();
       
-      // CHARGEMENT SCORES (Cache)
       Map<String, int> parsedScores = {};
       if (data['scores'] != null && data['scores'] is Map) {
         (data['scores'] as Map).forEach((k, v) {
@@ -314,7 +300,7 @@ class DataManager with ChangeNotifier {
         email: data['email'] ?? '',
         totalAnswers: data['totalAnswers'] ?? 0,
         createdAt: createdDate,
-        scores: parsedScores, // <--- CACHE
+        scores: parsedScores,
         dailyActivity: parsedDaily,
         answeredQuestions: loadedAnsweredIds,
         seenQuestionIds: loadedSeenIds,
@@ -325,19 +311,15 @@ class DataManager with ChangeNotifier {
 
   List<SubThemeInfo> getSubThemesFor(String themeName) => subThemes.where((st) => st.parentTheme == themeName).toList();
   
-  // --- SAUVEGARDE DES RÉPONSES (AVEC MISE À JOUR DU CACHE SCORES) ---
   Future<void> addAnswer(bool isCorrect, String questionId, String answerText, String themeName, [String? subThemeName]) async {
-    // 1. VOLUME
     currentUser.totalAnswers++;
     
-    // 2. PROGRESSION (UNIQUE)
     bool isNewDiscovery = false;
     if (!currentUser.seenQuestionIds.contains(questionId)) {
       currentUser.seenQuestionIds.add(questionId);
       isNewDiscovery = true;
     }
 
-    // 3. MAÎTRISE & CACHE
     bool masteryStatusChanged = false;
     int scoreModifier = 0; // +1 ou -1
 
@@ -355,24 +337,16 @@ class DataManager with ChangeNotifier {
       }
     }
 
-    // Mise à jour LOCALE du Cache Score (Indispensable pour affichage immédiat)
     if (masteryStatusChanged && scoreModifier != 0) {
-      // Score du Thème
       currentUser.scores[themeName] = (currentUser.scores[themeName] ?? 0) + scoreModifier;
       if (currentUser.scores[themeName]! < 0) currentUser.scores[themeName] = 0;
 
-      // Score du Sous-Thème (si fourni)
       if (subThemeName != null) {
-        // Clé combinée pour éviter les conflits, ex: "Histoire-Antiquité"
-        // Mais ton code précédent utilisait juste "Antiquité" dans certaines vues.
-        // On va utiliser le nom du sous-thème directement comme clé si unique, ou le format composé.
-        // Pour être sûr, utilisons le nom du sous-thème comme clé simple comme dans ton affichage
         currentUser.scores[subThemeName] = (currentUser.scores[subThemeName] ?? 0) + scoreModifier;
         if (currentUser.scores[subThemeName]! < 0) currentUser.scores[subThemeName] = 0;
       }
     }
 
-    // 4. ACTIVITY
     final now = DateTime.now();
     final dateKey = "${now.year}-${now.month.toString().padLeft(2,'0')}-${now.day.toString().padLeft(2,'0')}";
     Map<String, int> themeMap = currentUser.dailyActivity[themeName] ?? {};
@@ -383,7 +357,6 @@ class DataManager with ChangeNotifier {
 
     if (currentUser.id == "guest") return;
 
-    // --- MISE À JOUR FIREBASE ---
     try {
       final userRef = FirebaseFirestore.instance.collection('Users').doc(currentUser.id);
       
@@ -402,7 +375,6 @@ class DataManager with ChangeNotifier {
           updates['answeredQuestions'] = FieldValue.arrayRemove([questionId]);
         }
         
-        // Mise à jour du cache dans Firestore
         if (scoreModifier != 0) {
           updates['scores.$themeName'] = FieldValue.increment(scoreModifier);
           if (subThemeName != null) {
@@ -439,7 +411,6 @@ class DataManager with ChangeNotifier {
     }
   }
 
-  // --- SIGNALEMENTS ---
   Future<void> reportQuestionDetailed({
     required String questionId,
     required String question,
