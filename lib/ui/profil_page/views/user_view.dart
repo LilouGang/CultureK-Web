@@ -173,8 +173,11 @@ class _UserViewState extends State<UserView> {
                     if (!_isChangingPassword) // On évite de tout modifier en même temps pour la clarté
                       IconButton(
                         onPressed: () {
-                          if (_isEditingInfo) _refreshData(); // Annuler
-                          else setState(() => _isEditingInfo = true);
+                          if (_isEditingInfo) {
+                            _refreshData(); // Annuler
+                          } else {
+                            setState(() => _isEditingInfo = true);
+                          }
                         },
                         icon: Icon(_isEditingInfo ? Icons.close : Icons.edit_rounded, color: _isEditingInfo ? Colors.red : Colors.blueGrey),
                         style: IconButton.styleFrom(backgroundColor: _isEditingInfo ? Colors.red.withOpacity(0.1) : Colors.blueGrey.withOpacity(0.05)),

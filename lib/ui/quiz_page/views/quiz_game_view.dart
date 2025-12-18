@@ -558,7 +558,7 @@ class _ResultPanel extends StatelessWidget {
               double percent = totalAnswers > 0 ? (votes / totalAnswers) : 0.0; bool isThisAnswerCorrect = pStr == correctAnswer;
               String percentStr = "${(percent * 100).toInt().toString().padLeft(2, '0')}%";
               return Padding(padding: const EdgeInsets.only(bottom: 12), child: Row(children: [Expanded(flex: 4, child: Text(pStr, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 17, color: isThisAnswerCorrect ? const Color(0xFF10B981) : Colors.grey.shade600, fontWeight: isThisAnswerCorrect ? FontWeight.bold : FontWeight.normal))), Expanded(flex: 3, child: Stack(children: [Container(height: 10, decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(5))), FractionallySizedBox(widthFactor: percent, child: Container(height: 10, decoration: BoxDecoration(color: isThisAnswerCorrect ? const Color(0xFF10B981) : Colors.grey.shade300, borderRadius: BorderRadius.circular(5))))])), const SizedBox(width: 12), Text(percentStr, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'monospace'))]));
-            }).toList()
+            })
           ]),
         ),
         const SizedBox(height: 20),

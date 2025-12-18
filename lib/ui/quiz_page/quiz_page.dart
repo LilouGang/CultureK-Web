@@ -193,12 +193,12 @@ class _QuizPageState extends State<QuizPage> {
     Map<String, double> progressMap = {};
     
     // On utilise la map scores qui est maintenant tenue à jour localement
-    DataManager.instance.themes.forEach((theme) {
+    for (var theme in DataManager.instance.themes) {
       int score = user.scores[theme.name] ?? 0;
       int total = DataManager.instance.countTotalQuestionsForTheme(theme.name);
       if (total == 0) total = 1;
       progressMap[theme.name] = (score / total).clamp(0.0, 1.0);
-    });
+    }
     
     return progressMap;
   }
